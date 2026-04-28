@@ -1,0 +1,6 @@
+/Users/mac/Documents/Prj/payment-api-qa-framework/src/test/java/com/binance/payment/api/IdempotencyTest.java
+/Users/mac/Documents/Prj/payment-api-qa-framework/src/test/java/com/binance/payment/api/PaymentAPITest.java
+/Users/mac/Documents/Prj/payment-api-qa-framework/src/test/java/com/binance/payment/db/BalanceVerificationTest.java
+/Users/mac/Documents/Prj/payment-api-qa-framework/src/test/java/com/binance/payment/integration/PaymentFlowTest.java
+/Users/mac/Documents/Prj/payment-api-qa-framework/src/test/java/com/binance/payment/unit/PaymentServiceTest.java
+/Users/mac/Documents/Prj/payment-api-qa-framework/src/test/java/com/binance/payment/util/DatabaseUtil.java

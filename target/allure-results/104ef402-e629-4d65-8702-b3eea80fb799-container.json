@@ -1,0 +1,1 @@
+{"uuid":"104ef402-e629-4d65-8702-b3eea80fb799","name":"Payment failure triggers DB rollback — balance unchanged (ACID Atomicity)","children":["a7605b27-6828-465b-af79-21dce9abbd7b"],"befores":[],"afters":[],"start":1777364784225,"stop":1777364784228}
