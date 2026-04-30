@@ -4,3 +4,16 @@ target/
 .idea/
 *.iml
 .DS_Store
+
+# Next.js
+trading-engine-ui/.next/
+trading-engine-ui/out/
+trading-engine-ui/node_modules/
+trading-engine-ui/.env.local
+trading-engine-ui/.env*.local
+trading-engine-ui/tsconfig.tsbuildinfo
+trading-engine-ui/*.log
+
+# Java build artifacts
+trading-engine-simulator/target/
+trading-engine-simulator/allure-results/

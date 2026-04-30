@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #0B0E11;
+  color: #EAECEF;
+  font-family: 'JetBrains Mono', Consolas, ui-monospace, monospace;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #1E2026; }
+::-webkit-scrollbar-thumb { background: #2B2F36; border-radius: 2px; }
+
+/* Number flash animation */
+@keyframes flash-green {
+  0%   { color: #02C076; }
+  100% { color: inherit; }
+}
+@keyframes flash-red {
+  0%   { color: #F6465D; }
+  100% { color: inherit; }
+}
+.flash-green { animation: flash-green 0.5s ease-out; }
+.flash-red   { animation: flash-red   0.5s ease-out; }
