@@ -9,9 +9,15 @@ Full-cycle Binance QA portfolio — payment backend automation, a live BTC tradi
 ## Repository Structure
 
 ```
-payment-api-qa-framework/          ← Payment API test suite (Java 17, JUnit 5)
-trading-engine-simulator/          ← BTC trading engine + REST/WebSocket API (Java 17)
-trading-engine-ui/                 ← Real-time trading dashboard (Next.js 15)
+payment-api-qa-framework/          ← Monorepo root (Maven parent POM)
+├── payment-api/                   ← Module 1: Payment QA tests (Java 17, 16 tests)
+├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 55 tests)
+└── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15)
+```
+
+**One command runs all 71 Java tests:**
+```bash
+mvn test   # runs payment-api + trading-engine-simulator in sequence
 ```
 
 ---
@@ -29,7 +35,7 @@ Full-cycle automated testing covering API testing, database verification, idempo
 | DB Tests | Balance deduction, ACID rollback, idempotency constraint | JDBC, H2 |
 | Integration | Full flow: API → async processing → DB verification | WireMock + H2 |
 
-**Total: 11 test cases across 4 layers**
+**Total: 16 test cases across 4 layers**
 
 ### Key Test Scenarios
 
@@ -48,31 +54,38 @@ Payment exceeds balance → `deductBalance()` throws → explicit `conn.rollback
 ### Project Structure
 
 ```
-src/
-├── main/java/com/binance/payment/
-│   ├── model/
-│   │   ├── PaymentRequest.java
-│   │   └── PaymentResponse.java
-│   └── service/
-│       ├── PaymentRepository.java
-│       └── PaymentService.java
-└── test/java/com/binance/payment/
-    ├── unit/PaymentServiceTest.java
-    ├── api/
-    │   ├── PaymentAPITest.java
-    │   └── IdempotencyTest.java
-    ├── db/BalanceVerificationTest.java
-    ├── integration/PaymentFlowTest.java
-    └── util/DatabaseUtil.java
+payment-api/
+├── pom.xml
+└── src/
+    ├── main/java/com/binance/payment/
+    │   ├── model/
+    │   │   ├── PaymentRequest.java
+    │   │   └── PaymentResponse.java
+    │   └── service/
+    │       ├── PaymentRepository.java
+    │       └── PaymentService.java
+    └── test/java/com/binance/payment/
+        ├── unit/PaymentServiceTest.java
+        ├── api/
+        │   ├── PaymentAPITest.java
+        │   └── IdempotencyTest.java
+        ├── db/BalanceVerificationTest.java
+        ├── integration/PaymentFlowTest.java
+        └── util/DatabaseUtil.java
 ```
 
 ### How to Run
 
 ```bash
-cd payment-api-qa-framework   # from repo root
+# From repo root — runs all 71 tests (both modules)
 mvn test
-mvn allure:report
-open target/site/allure-maven-plugin/index.html
+
+# Payment module only
+cd payment-api && mvn test
+
+# Generate Allure report
+cd payment-api && mvn allure:report
+open payment-api/target/site/allure-maven-plugin/index.html
 ```
 
 ---

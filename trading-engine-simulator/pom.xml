@@ -5,66 +5,53 @@
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.binance</groupId>
+    <parent>
+        <groupId>com.binance</groupId>
+        <artifactId>binance-qa-suite</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
     <artifactId>trading-engine-simulator</artifactId>
-    <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>Binance Trading Engine Simulator</name>
-    <description>QA demo: live BTC trading engine for testing HashMap/LRU/Validation/Threading patterns</description>
-
-    <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <junit.version>5.10.1</junit.version>
-        <restassured.version>5.4.0</restassured.version>
-        <jackson.version>2.16.1</jackson.version>
-        <allure.version>2.25.0</allure.version>
-        <mockito.version>5.8.0</mockito.version>
-        <aspectj.version>1.9.21</aspectj.version>
-    </properties>
+    <description>QA demo: live BTC trading engine — HashMap/LRU/Validation/Threading patterns, 55 tests, MySQL persistence</description>
 
     <dependencies>
-        <!-- MySQL JDBC Driver: persists orders to binance_test_db -->
+        <!-- MySQL JDBC -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
-            <version>8.3.0</version>
         </dependency>
 
-        <!-- Java-WebSocket: simple WebSocket server for real-time frontend streaming -->
+        <!-- WebSocket server -->
         <dependency>
             <groupId>org.java-websocket</groupId>
             <artifactId>Java-WebSocket</artifactId>
-            <version>1.5.4</version>
         </dependency>
 
-        <!-- Jackson: JSON serialization for the embedded HTTP server -->
+        <!-- Jackson -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
         </dependency>
 
         <!-- JUnit 5 -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
-            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
 
-        <!-- RestAssured: API testing against live embedded server -->
+        <!-- RestAssured -->
         <dependency>
             <groupId>io.rest-assured</groupId>
             <artifactId>rest-assured</artifactId>
-            <version>${restassured.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -72,29 +59,23 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
-            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
 
-        <!-- Allure reporting -->
+        <!-- Allure -->
         <dependency>
             <groupId>io.qameta.allure</groupId>
             <artifactId>allure-junit5</artifactId>
-            <version>${allure.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.qameta.allure</groupId>
             <artifactId>allure-rest-assured</artifactId>
-            <version>${allure.version}</version>
             <scope>test</scope>
         </dependency>
-
-        <!-- AspectJ weaver required by Allure -->
         <dependency>
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjweaver</artifactId>
-            <version>${aspectj.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -104,13 +85,14 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
                 <configuration>
                     <argLine>
                         -javaagent:${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar
                     </argLine>
                 </configuration>
             </plugin>
+
+            <!-- Fat JAR for standalone startup -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -140,10 +122,10 @@
                     </execution>
                 </executions>
             </plugin>
+
             <plugin>
                 <groupId>io.qameta.allure</groupId>
                 <artifactId>allure-maven</artifactId>
-                <version>2.12.0</version>
             </plugin>
         </plugins>
     </build>
