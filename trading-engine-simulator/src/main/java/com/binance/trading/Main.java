@@ -95,10 +95,12 @@ public class Main {
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("\nShutting down...");
-            scheduler.shutdownNow();
-            engine.stop();
+            // Close external entry points first, then engine, then DB
+            scheduler.shutdown();
+            try { scheduler.awaitTermination(2, TimeUnit.SECONDS); } catch (InterruptedException ignored) {}
             restServer.stop();
             try { wsServer.stop(1000); } catch (Exception ignored) {}
+            engine.stop();
             db.close();
             System.out.printf("Done. Total orders generated: %d%n", engine.getTotalGenerated());
         }));

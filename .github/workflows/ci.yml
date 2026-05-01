@@ -9,7 +9,7 @@ on:
 jobs:
   # ── Java: all modules (payment-api + trading-engine-simulator) ──────────
   java-tests:
-    name: Java Tests (66 total)
+    name: Java Tests (71 total)
     runs-on: ubuntu-latest
 
     steps:
