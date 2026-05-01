@@ -11,7 +11,7 @@ Full-cycle Binance QA portfolio — payment backend automation, a live BTC tradi
 ```
 binance-qa-suite/                  ← Monorepo root (Maven parent POM)
 ├── payment-api/                   ← Module 1: Payment QA tests (Java 17, 16 tests)
-├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 55 tests)
+├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 55 tests in CI / 63 with MySQL)
 └── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15)
 ```
 
@@ -111,15 +111,19 @@ BTC/USDT trading engine demonstrating 4 LeetCode algorithm patterns with 55 auto
 ### Test Results
 
 ```
-Tests run: 55, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
+# CI (no MySQL):
+Tests run: 55, Failures: 0, Errors: 0, Skipped: 8 — BUILD SUCCESS
+
+# Local with MySQL:
+Tests run: 63, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 ```
 
-| Suite | Tests | Description |
-|---|---|---|
-| Unit | 44 | OrderBook, OrderCache, AmountValidator, TradingEngine |
-| API | 7 | RestAssured against live embedded server |
-| Integration | 4 | End-to-end: all 4 patterns verified together |
-| DB Validation | 8 | Binance QA-style MySQL checks (`-Dgroups=db-validation`) |
+| Suite | Tests | CI | Local (MySQL) | Description |
+|---|---|---|---|---|
+| Unit | 44 | ✅ | ✅ | OrderBook, OrderCache, AmountValidator, TradingEngine |
+| API | 7 | ✅ | ✅ | RestAssured against live embedded server |
+| Integration | 4 | ✅ | ✅ | End-to-end: all 4 patterns verified together |
+| DB Validation | 8 | ⏭ Skipped | ✅ | Binance QA-style MySQL checks (`-Dgroups=db-validation`) |
 
 ### Architecture
 
