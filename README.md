@@ -1,15 +1,15 @@
-# Payment API QA Framework
+# Binance QA Suite
 
 Full-cycle Binance QA portfolio — payment backend automation, a live BTC trading engine simulator with MySQL persistence, and a real-time Next.js trading dashboard.
 
-![CI](https://github.com/benson-code/payment-api-qa-framework/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/benson-code/binance-qa-suite/actions/workflows/ci.yml/badge.svg)
 
 ---
 
 ## Repository Structure
 
 ```
-payment-api-qa-framework/          ← Monorepo root (Maven parent POM)
+binance-qa-suite/                  ← Monorepo root (Maven parent POM)
 ├── payment-api/                   ← Module 1: Payment QA tests (Java 17, 16 tests)
 ├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 55 tests)
 └── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15)
@@ -18,6 +18,11 @@ payment-api-qa-framework/          ← Monorepo root (Maven parent POM)
 **One command runs all 71 Java tests:**
 ```bash
 mvn test   # runs payment-api + trading-engine-simulator in sequence
+```
+
+**DB validation (requires live MySQL):**
+```bash
+mvn test -pl trading-engine-simulator -Dgroups=db-validation
 ```
 
 ---
@@ -111,9 +116,10 @@ Tests run: 55, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 
 | Suite | Tests | Description |
 |---|---|---|
-| Unit | 38 | OrderBook, OrderCache, AmountValidator, TradingEngine |
-| API | 10 | RestAssured against live embedded server |
-| Integration | 7 | End-to-end: all 4 patterns verified together |
+| Unit | 44 | OrderBook, OrderCache, AmountValidator, TradingEngine |
+| API | 7 | RestAssured against live embedded server |
+| Integration | 4 | End-to-end: all 4 patterns verified together |
+| DB Validation | 8 | Binance QA-style MySQL checks (`-Dgroups=db-validation`) |
 
 ### Architecture
 
@@ -155,7 +161,7 @@ cd trading-engine-simulator
 mvn package -q
 
 # Start (requires MySQL on localhost:3306)
-DB_PASSWORD=your_password java -jar target/trading-engine-simulator-1.0-SNAPSHOT.jar
+DB_PASSWORD=your_password java -jar target/trading-engine-simulator-1.0.0.jar
 
 # Run tests (no external DB needed)
 mvn test

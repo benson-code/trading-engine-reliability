@@ -2,7 +2,7 @@
 
 A production-grade QA demo project simulating a live BTC/USDT trading engine — built to demonstrate **4 core LeetCode patterns** applied to real financial system design.
 
-Pairs with a [Next.js real-time dashboard](https://github.com/benson-code/trading-engine-ui) for live order visualization.
+Pairs with the [trading-engine-ui](https://github.com/benson-code/binance-qa-suite/tree/main/trading-engine-ui) module in this monorepo for live order visualization.
 
 ---
 
@@ -361,7 +361,7 @@ During self-review, 11 bugs were identified and fixed:
 
 ## Frontend
 
-The [trading-engine-ui](https://github.com/benson-code/trading-engine-ui) repo provides a Binance-styled real-time dashboard:
+The [trading-engine-ui](https://github.com/benson-code/binance-qa-suite/tree/main/trading-engine-ui) module provides a Binance-styled real-time dashboard:
 
 - **TradingView candlestick chart** — 5-second OHLCV candles built from live WebSocket orders
 - **Live Order Book** — newest-first table with duplicate highlighting (⚠)

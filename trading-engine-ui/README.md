@@ -1,6 +1,6 @@
 # Binance Trading Engine UI
 
-Real-time BTC/USDT trading dashboard for the [trading-engine-simulator](https://github.com/benson-code/trading-engine-simulator) backend.
+Real-time BTC/USDT trading dashboard for the [trading-engine-simulator](https://github.com/benson-code/binance-qa-suite/tree/main/trading-engine-simulator) backend.
 
 Built with **Next.js 15**, **TypeScript**, **Tailwind CSS**, and **lightweight-charts** (TradingView).
 
@@ -56,7 +56,7 @@ useTradingEngine.ts  (custom hook)
 ## Prerequisites
 
 - Node.js 18+
-- Running [trading-engine-simulator](https://github.com/benson-code/trading-engine-simulator) backend
+- Running [trading-engine-simulator](https://github.com/benson-code/binance-qa-suite/tree/main/trading-engine-simulator) backend
 
 ---
 
@@ -121,7 +121,7 @@ Lookup per row is O(1) instead of the previous O(n) `findIndex` scan.
 
 ## Backend
 
-See [trading-engine-simulator](https://github.com/benson-code/trading-engine-simulator) for the full Java backend with REST API documentation, test results, and MySQL schema.
+See [trading-engine-simulator](https://github.com/benson-code/binance-qa-suite/tree/main/trading-engine-simulator) for the full Java backend with REST API documentation, test results, and MySQL schema.
 
 ---
 
