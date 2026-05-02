@@ -131,15 +131,17 @@ Tests run: 63, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 ┌─────────────────────────────────────────────────────────┐
 │                Trading Engine Simulator                  │
 │                                                         │
-│  BUY Thread ──┐                                         │
-│               ├──► OrderBook (HashMap) ──► REST API :8092│
-│  SELL Thread ─┘         │                               │
-│               Semaphore  │                              │
-│               alternation│                              │
-│                          ▼                              │
-│                    OrderCache (LRU) ──► WebSocket :8093 │
-│                          │                              │
-│                    MySQL (async) ──► /api/v1/orders/history│
+│  BUY Thread ──┐  (Semaphore alternation)                │
+│               ├──► orderBook.addOrder()                 │
+│  SELL Thread ─┘   orderCache.put()                      │
+│                   orderListener.accept()                 │
+│                        │           │                    │
+│                        ▼           ▼                    │
+│             OrderBook (HashMap)  WebSocket :8093        │
+│             OrderCache (LRU)     MySQL (async)          │
+│                   │                   │                 │
+│                   ▼                   ▼                 │
+│             REST API :8092   /api/v1/orders/history     │
 └─────────────────────────────────────────────────────────┘
 ```
 

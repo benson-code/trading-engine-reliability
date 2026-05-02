@@ -24,6 +24,7 @@ import java.util.concurrent.Executors;
  *   GET  /api/v1/orders/{id}         → single order (hits LRU cache first)
  *   POST /api/v1/orders              → inject order manually
  *   GET  /api/v1/orders/duplicates   → duplicate order analysis
+ *   GET  /api/v1/orders/history      → persistent orders from MySQL (requires DB)
  *   POST /api/v1/engine/start        → start order generation (called by frontend RUN button)
  *   POST /api/v1/engine/stop         → stop order generation  (called by frontend STOP button)
  *
