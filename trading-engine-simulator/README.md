@@ -346,7 +346,7 @@ Configured in `Main.java`:
 
 ## Bugs Fixed (QA Review)
 
-During self-review, 8 bugs were identified and fixed in this module:
+During self-review, 9 bugs were identified and fixed in this module:
 
 | Severity | Bug | Fix |
 |----------|-----|-----|
@@ -358,6 +358,7 @@ During self-review, 8 bugs were identified and fixed in this module:
 | 🟠 High | `POST` body size unlimited → OOM vector | `readNBytes(65_536)` cap |
 | 🟡 Medium | Duplicate ID generation references wrong thread's counter | Step back by multiples of 2 |
 | 🟡 Medium | Hardcoded DB password in source | `System.getenv("DB_PASSWORD")` with fallback |
+| 🔴 Critical | `OrderBook.getAllOrders()` iterates `synchronizedList` without lock → intermittent `ConcurrentModificationException` in integration tests | `synchronized (allOrders) { return new ArrayList<>(allOrders); }` |
 
 ---
 

@@ -206,6 +206,7 @@ CREATE TABLE orders (
 | BUG-08 | TradingEngine | Duplicate IDs cross-thread contamination | Step back by even multiples only |
 | BUG-09 | useTradingEngine.ts | No reconnect on WS disconnect | Exponential backoff (1s→30s) |
 | BUG-10 | useTradingEngine.ts | O(n²) duplicate detection | `useMemo` pre-computed `Set`, O(1) lookup |
+| BUG-11 | OrderBook | `getAllOrders()` iterates `synchronizedList` without lock → intermittent `ConcurrentModificationException` | `synchronized (allOrders) { return new ArrayList<>(allOrders); }` |
 
 ---
 
