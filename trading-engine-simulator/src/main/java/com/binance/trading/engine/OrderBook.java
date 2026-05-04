@@ -60,7 +60,9 @@ public class OrderBook {
         return Collections.unmodifiableMap(orderIdFrequency);
     }
 
-    public Collection<Order> getAllOrders()    { return Collections.unmodifiableList(allOrders); }
+    public Collection<Order> getAllOrders() {
+        synchronized (allOrders) { return new ArrayList<>(allOrders); }
+    }
     public Order getOrder(String orderId)      { return orders.get(orderId); }
     public int totalOrderCount()               { return allOrders.size(); }
     public int uniqueOrderCount()              { return orders.size(); }
