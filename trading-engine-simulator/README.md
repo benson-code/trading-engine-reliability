@@ -95,6 +95,8 @@ src/
     │   └── AlternatePrintTest.java           # 3 tests  — LC-1115 (Semaphore)
     ├── api/
     │   └── TradingEngineApiTest.java         # 7 tests  — RestAssured live HTTP
+    ├── db/
+    │   └── DBValidationTest.java             # 8 tests  — Binance QA-style MySQL checks (skipped in CI)
     └── integration/
         └── TradingFlowIntegrationTest.java   # 4 tests  — all 4 patterns end-to-end
 ```
@@ -161,7 +163,7 @@ mvn test
 ```
 
 ```
-Tests run: 55, Failures: 0, Errors: 0, Skipped: 0  ✅
+Tests run: 55, Failures: 0, Errors: 0, Skipped: 8  ✅
 ```
 
 | Test Class | Count | What It Covers |
@@ -344,7 +346,7 @@ Configured in `Main.java`:
 
 ## Bugs Fixed (QA Review)
 
-During self-review, 11 bugs were identified and fixed:
+During self-review, 8 bugs were identified and fixed in this module:
 
 | Severity | Bug | Fix |
 |----------|-----|-----|
