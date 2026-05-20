@@ -281,7 +281,6 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 | JUnit 5 | Test framework |
 | Mockito | Mocking for unit tests |
 | RestAssured | HTTP API assertions |
-| WireMock | Mock HTTP server |
 | H2 | In-memory database (MySQL mode) |
 | MySQL 8 | Persistent order storage |
 | Allure | Test report generation |

@@ -16,7 +16,7 @@
     <artifactId>payment-api-qa-framework</artifactId>
     <packaging>jar</packaging>
     <name>Payment API QA Framework</name>
-    <description>Full-cycle automated testing: idempotency, ACID, async payment flow — RestAssured + WireMock + H2</description>
+    <description>Full-cycle automated testing: idempotency, ACID, async payment flow — RestAssured + H2 + JDBC</description>
 
     <dependencies>
         <!-- Jackson -->
