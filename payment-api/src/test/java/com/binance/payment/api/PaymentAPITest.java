@@ -1,83 +1,51 @@
 package com.binance.payment.api;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
+import com.binance.payment.service.InMemoryPaymentRepository;
+import com.binance.payment.service.PaymentService;
 import io.qameta.allure.*;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.*;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.containing;
-import static com.github.tomakehurst.wiremock.client.WireMock.get;
-import static com.github.tomakehurst.wiremock.client.WireMock.post;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import java.net.ServerSocket;
+
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+/**
+ * Payment API tests against the <b>real</b> {@link PaymentApiServer}.
+ *
+ * <p>P2: previously these asserted against hard-coded WireMock JSON and never
+ * executed the service. They now exercise the actual validation and
+ * async-settlement code paths. Each test uses a distinct idempotency key, so a
+ * single shared server is safe.</p>
+ */
 @Epic("Payment API")
 @Feature("Payment Processing")
 class PaymentAPITest {
 
-    private static WireMockServer wireMockServer;
+    private static PaymentApiServer server;
 
     @BeforeAll
-    static void startMockServer() {
-        wireMockServer = new WireMockServer(wireMockConfig().port(8089));
-        wireMockServer.start();
+    static void startServer() throws Exception {
+        int port;
+        try (ServerSocket probe = new ServerSocket(0)) {
+            port = probe.getLocalPort();
+        }
+        PaymentService service = new PaymentService(new InMemoryPaymentRepository());
+        server = new PaymentApiServer(port, service, 20);  // 20 ms async settle
+        server.start();
 
         RestAssured.baseURI = "http://localhost";
-        RestAssured.port = 8089;
-
-        // Priority 1: negative amount → 400 (matched first)
-        wireMockServer.stubFor(post(urlEqualTo("/api/v1/payments"))
-                .withRequestBody(containing("\"amount\": -"))
-                .atPriority(1)
-                .willReturn(aResponse()
-                        .withStatus(400)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {
-                                    "error": "INVALID_AMOUNT",
-                                    "message": "Amount must be positive"
-                                }
-                                """)));
-
-        // Priority 5: all valid payments → 202 Accepted (async flow)
-        wireMockServer.stubFor(post(urlEqualTo("/api/v1/payments"))
-                .atPriority(5)
-                .willReturn(aResponse()
-                        .withStatus(202)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {
-                                    "payment_id": "PAY_20260428_001",
-                                    "status": "PENDING",
-                                    "job_id": "JOB_20260428_001",
-                                    "message": "Payment accepted. Use job_id to poll status."
-                                }
-                                """)));
-
-        // Status polling endpoint
-        wireMockServer.stubFor(get(urlMatching("/api/v1/payments/.*/status"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {
-                                    "payment_id": "PAY_20260428_001",
-                                    "status": "SUCCESS",
-                                    "message": "Payment completed"
-                                }
-                                """)));
+        RestAssured.port = port;
     }
 
     @AfterAll
-    static void stopMockServer() {
-        wireMockServer.stop();
+    static void stopServer() {
+        if (server != null) server.stop();
     }
 
     // ─── Happy Path ─────────────────────────────────────────────────────────
@@ -138,7 +106,7 @@ class PaymentAPITest {
     @Story("Async Payment Flow")
     @Severity(SeverityLevel.CRITICAL)
     @DisplayName("Payment returns job_id; polling the status endpoint returns SUCCESS")
-    void async_payment_polling_returns_success() {
+    void async_payment_polling_returns_success() throws InterruptedException {
         // Step 1: Submit payment → get job_id
         String jobId = given()
             .contentType(ContentType.JSON)
@@ -158,12 +126,17 @@ class PaymentAPITest {
             .extract()
             .path("job_id");
 
-        // Step 2: Poll status with job_id → confirm final state
-        given()
-        .when()
-            .get("/api/v1/payments/{jobId}/status", jobId)
-        .then()
-            .statusCode(200)
-            .body("status", equalTo("SUCCESS"));
+        // Step 2: Poll status with job_id → real async worker settles it
+        for (int attempt = 0; attempt < 40; attempt++) {
+            String status = given()
+                .when()
+                    .get("/api/v1/payments/{jobId}/status", jobId)
+                .then()
+                    .statusCode(200)
+                    .extract().path("status");
+            if ("SUCCESS".equals(status)) return;
+            Thread.sleep(25);
+        }
+        fail("job " + jobId + " did not settle to SUCCESS within timeout");
     }
 }

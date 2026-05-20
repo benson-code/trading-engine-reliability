@@ -10,12 +10,12 @@ Full-cycle Binance QA portfolio — payment backend automation, a live BTC tradi
 
 ```
 binance-qa-suite/                  ← Monorepo root (Maven parent POM)
-├── payment-api/                   ← Module 1: Payment QA tests (Java 17, 16 tests)
+├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 21 tests)
 ├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 55 tests in CI / 63 with MySQL)
 └── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15)
 ```
 
-**One command runs all 71 Java tests:**
+**One command runs all 76 Java tests:**
 ```bash
 mvn test   # runs payment-api + trading-engine-simulator in sequence
 ```
@@ -36,16 +36,21 @@ Full-cycle automated testing covering API testing, database verification, idempo
 | Layer | Scenarios | Tools |
 |---|---|---|
 | Unit Tests | Validation logic, idempotency service logic | JUnit 5, Mockito |
-| API Tests | Happy path, negative cases, async 202 flow | RestAssured, WireMock |
+| API Tests | Happy path, negative cases, async 202 flow | RestAssured vs real `PaymentApiServer` |
 | DB Tests | Balance deduction, ACID rollback, idempotency constraint | JDBC, H2 |
-| Integration | Full flow: API → async processing → DB verification | WireMock + H2 |
+| Integration / E2E | Full flow + async settlement against the real service | RestAssured, embedded JDK HTTP server |
 
-**Total: 16 test cases across 4 layers**
+**Total: 21 test cases across 4 layers** (16 original + 5 real-service E2E)
+
+> P1/P2: the API & integration tests now execute the real `PaymentService`
+> through an embedded HTTP server instead of asserting against WireMock stubs.
+> The DB-layer tests still exercise H2 directly — a JDBC-backed
+> `PaymentRepository` is the next increment (P3).
 
 ### Key Test Scenarios
 
 **1. Idempotency — Duplicate Payment Prevention**
-Simulates client retry: same `Idempotency-Key` header → API returns same `payment_id`, DB `UNIQUE` constraint blocks second insert → balance deducted exactly once.
+Simulates client retry: same `idempotency_key` → `PaymentService` short-circuits on `findByIdempotencyKey`, so `createPayment` (and its balance deduction) runs exactly once → API replays the same `payment_id` (`200`, not a second `202`).
 
 **2. ACID — Atomicity & Rollback**
 Payment exceeds balance → `deductBalance()` throws → explicit `conn.rollback()` → balance unchanged. Verifies DB-level atomicity.
@@ -63,17 +68,21 @@ payment-api/
 ├── pom.xml
 └── src/
     ├── main/java/com/binance/payment/
+    │   ├── Main.java                           ← standalone entry point (:8091)
+    │   ├── api/PaymentApiServer.java           ← real embedded JDK HTTP server
     │   ├── model/
     │   │   ├── PaymentRequest.java
     │   │   └── PaymentResponse.java
     │   └── service/
-    │       ├── PaymentRepository.java
+    │       ├── PaymentRepository.java          (interface — the swap seam)
+    │       ├── InMemoryPaymentRepository.java  ← runnable impl (P1)
     │       └── PaymentService.java
     └── test/java/com/binance/payment/
         ├── unit/PaymentServiceTest.java
         ├── api/
         │   ├── PaymentAPITest.java
-        │   └── IdempotencyTest.java
+        │   ├── IdempotencyTest.java
+        │   └── PaymentServiceE2ETest.java      ← E2E vs the real server
         ├── db/BalanceVerificationTest.java
         ├── integration/PaymentFlowTest.java
         └── util/DatabaseUtil.java
@@ -82,11 +91,16 @@ payment-api/
 ### How to Run
 
 ```bash
-# From repo root — runs all 71 tests (both modules)
+# From repo root — runs all 76 tests (both modules)
 mvn test
 
 # Payment module only
 cd payment-api && mvn test
+
+# Run the Payment API as a standalone service (no external DB)
+mvn package -pl payment-api -am -DskipTests
+java -jar payment-api/target/payment-api-qa-framework-1.0.0.jar 8091
+# → POST http://localhost:8091/api/v1/payments   GET /api/v1/health
 
 # Generate Allure report
 cd payment-api && mvn allure:report
