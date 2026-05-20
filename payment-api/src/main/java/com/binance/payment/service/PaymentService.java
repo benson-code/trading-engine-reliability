@@ -21,6 +21,16 @@ public class PaymentService {
                 .orElseGet(() -> repository.createPayment(request));
     }
 
+    /**
+     * Whether a payment already exists for this idempotency key. Lets the API
+     * layer answer 200 (idempotent replay) vs 202 (newly accepted) without
+     * altering {@link #processPayment}'s idempotency guarantee.
+     */
+    public boolean isAlreadyProcessed(String idempotencyKey) {
+        return idempotencyKey != null && !idempotencyKey.isBlank()
+                && repository.findByIdempotencyKey(idempotencyKey).isPresent();
+    }
+
     private void validate(PaymentRequest request) {
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Amount must be positive");
