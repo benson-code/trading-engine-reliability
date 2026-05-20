@@ -1,8 +1,15 @@
 # Binance QA Suite
 
-Full-cycle Binance QA portfolio — payment backend automation, a live BTC trading engine simulator with MySQL persistence, and a real-time Next.js trading dashboard.
+Full-cycle Binance QA portfolio: a runnable Payment API with real transactional ACID + idempotency under concurrency, a live BTC trading engine simulator with MySQL persistence, and a real-time Next.js dashboard.
 
 ![CI](https://github.com/benson-code/binance-qa-suite/actions/workflows/ci.yml/badge.svg)
+
+### Highlights
+
+- **Real service, real DB, real ACID** — `JdbcPaymentRepository.createPayment` runs the balance debit and the payment insert in **one transaction**; `UNIQUE(idempotency_key)` is the concurrency backstop. A retry that races and loses the constraint rolls back — **which undoes its debit** — so the account is debited exactly once regardless of how many retries arrive ([`JdbcPaymentRepositoryTest`](payment-api/src/test/java/com/binance/payment/db/JdbcPaymentRepositoryTest.java)).
+- **Concurrency proven, not asserted** — 16 threads call `createPayment` with the same idempotency key; the test ([`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)) asserts exactly-one debit and one `payment_id` on **both** repository implementations.
+- **No WireMock theatre** — every API and integration test now exercises the real `PaymentService` through an embedded HTTP server. The three pre-existing WireMock tests were rewritten to hit the real service ([commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4)).
+- **CI-enforced quality** — 82 tests in CI · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
 
 ---
 
@@ -43,10 +50,11 @@ Full-cycle automated testing covering API testing, database verification, idempo
 
 **Total: 27 test cases** (16 original + 5 real-service E2E + 6 P3: JDBC ACID/negative + concurrency)
 
-> P1/P2/P3: API, integration and concurrency tests execute the real
-> `PaymentService` (no WireMock). `JdbcPaymentRepository` adds real
-> transactional ACID with strict account semantics; `PaymentRepository`
-> remains the swap seam (`PAYMENT_REPO=jdbc` to run on it).
+> All API, integration and concurrency tests exercise the real
+> `PaymentService` through an embedded HTTP server — no WireMock.
+> `JdbcPaymentRepository` provides real transactional ACID with strict
+> account semantics; `PaymentRepository` is the swap seam, toggled with
+> `PAYMENT_REPO=jdbc` at runtime.
 
 ### Key Test Scenarios
 
@@ -92,6 +100,60 @@ payment-api/
         ├── integration/PaymentFlowTest.java
         └── util/DatabaseUtil.java
 ```
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Payment API (:8091)                       │
+│                                                              │
+│  POST /api/v1/payments  ──►  PaymentService.processPayment   │
+│                                       │                      │
+│                                       ▼                      │
+│                          PaymentRepository (interface)       │
+│                          ├── InMemoryPaymentRepository  (P1) │
+│                          └── JdbcPaymentRepository      (P3) │
+│                                       │                      │
+│                                       ▼                      │
+│                          single transaction:                 │
+│                          UPDATE accounts SET balance -= ?    │
+│                          INSERT INTO payments (...)          │
+│                          COMMIT  (or ROLLBACK on any failure)│
+│                                                              │
+│  GET /api/v1/payments/{jobId}/status  ◄── async settler      │
+│                                          (PENDING → SUCCESS) │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### REST API
+
+| Method | Endpoint | Success | Error codes |
+|---|---|---|---|
+| POST | `/api/v1/payments` | `202 Accepted` (new) / `200 OK` (idempotent replay) | `400 INVALID_AMOUNT`, `400 VALIDATION_ERROR`, `402 INSUFFICIENT_BALANCE`, `404 ACCOUNT_NOT_FOUND` |
+| GET | `/api/v1/payments/{jobId}/status` | `200 OK` with `status: PENDING` / `SUCCESS` | `404 JOB_NOT_FOUND` |
+| GET | `/api/v1/health` | `200 {"status":"UP"}` | — |
+
+### DB Schema (H2 in MySQL mode — `JdbcPaymentRepository`)
+
+```sql
+CREATE TABLE accounts (
+    user_id   VARCHAR(50)   PRIMARY KEY,
+    balance   DECIMAL(18,8) NOT NULL,
+    currency  VARCHAR(10)   NOT NULL DEFAULT 'USDT'
+);
+
+CREATE TABLE payments (
+    payment_id      VARCHAR(50)   PRIMARY KEY,
+    order_id        VARCHAR(50)   NOT NULL,
+    user_id         VARCHAR(50)   NOT NULL,
+    amount          DECIMAL(18,8) NOT NULL,
+    status          VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
+    idempotency_key VARCHAR(100)  UNIQUE NOT NULL,
+    created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+The `UNIQUE(idempotency_key)` constraint is the concurrency backstop: under a race, the loser's INSERT fails, its transaction rolls back, the debit it performed is undone, and the API returns the winning transaction's `payment_id`.
 
 ### How to Run
 
@@ -272,6 +334,20 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 
 ---
 
+## Repo Conventions
+
+| Setting | Value |
+|---|---|
+| `main` branch protection | PR-only · 2 required CI checks · `enforce_admins: true` · force-push & deletion disabled · conversation resolution required |
+| Repo merge strategy | Squash **disabled** · Merge + Rebase allowed · auto-delete branch on merge |
+| Recommended merge mode | **Rebase merge** — keeps the P1 → P2 → P3 commits as a linear narrative on `main` |
+| CI triggers | `push` to `main`/`develop` · `pull_request` to `main` |
+| Required checks | `Java Tests (82 total)` · `UI Build Check (Next.js 15)` |
+
+> The portfolio's history was built as a phased refactor. `git log --oneline main` shows the four steps from the empty-shell payment-api to the real ACID-backed service in chronological order — the commit log is itself a design document.
+
+---
+
 ## Tech Stack (All Modules)
 
 | Tool | Purpose |
@@ -281,6 +357,7 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 | JUnit 5 | Test framework |
 | Mockito | Mocking for unit tests |
 | RestAssured | HTTP API assertions |
+| JDBC | Driver-agnostic DB access (`java.sql`) — used by `JdbcPaymentRepository` |
 | H2 | In-memory database (MySQL mode) |
 | MySQL 8 | Persistent order storage |
 | Allure | Test report generation |
