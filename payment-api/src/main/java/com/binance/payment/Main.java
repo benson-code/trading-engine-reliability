@@ -2,8 +2,11 @@ package com.binance.payment;
 
 import com.binance.payment.api.PaymentApiServer;
 import com.binance.payment.service.InMemoryPaymentRepository;
+import com.binance.payment.service.JdbcPaymentRepository;
 import com.binance.payment.service.PaymentRepository;
 import com.binance.payment.service.PaymentService;
+
+import java.math.BigDecimal;
 
 /**
  * Entry point for the standalone Payment API (P1).
@@ -26,22 +29,43 @@ public class Main {
     public static void main(String[] args) throws Exception {
         int port = resolvePort(args);
 
-        PaymentRepository repository = new InMemoryPaymentRepository();
-        PaymentService    service    = new PaymentService(repository);
-        PaymentApiServer  server     = new PaymentApiServer(port, service);
+        // PAYMENT_REPO=jdbc → real DB (H2 in-mem, MySQL mode) with strict
+        // account semantics; default 'memory' keeps the zero-friction demo.
+        String repoMode = System.getenv()
+                .getOrDefault("PAYMENT_REPO", "memory").trim().toLowerCase();
+        String repoLabel;
+        PaymentRepository repository;
+        if ("jdbc".equals(repoMode)) {
+            JdbcPaymentRepository jdbc = new JdbcPaymentRepository();
+            // Composition root seeds a demo account so a fresh `java -jar`
+            // smoke works; unknown users still correctly fail (404).
+            jdbc.seedAccount("USER_DEMO", new BigDecimal("1000000"));
+            repository = jdbc;
+            repoLabel  = "JDBC H2 (MySQL mode) — seeded account: USER_DEMO";
+        } else {
+            repository = new InMemoryPaymentRepository();
+            repoLabel  = "in-memory (no external DB)";
+        }
+
+        PaymentService   service = new PaymentService(repository);
+        PaymentApiServer server  = new PaymentApiServer(port, service);
         server.start();
+        int boundPort = server.getPort();
 
         System.out.println("╔══════════════════════════════════════════════╗");
-        System.out.println("║          Binance Payment API (P1)            ║");
+        System.out.println("║            Binance Payment API               ║");
         System.out.println("╚══════════════════════════════════════════════╝");
-        System.out.printf("  REST API : http://0.0.0.0:%d/api/v1/payments%n", port);
-        System.out.printf("  Health   : http://0.0.0.0:%d/api/v1/health%n", port);
-        System.out.println("  Repo     : in-memory (no external DB)");
+        System.out.printf("  REST API : http://0.0.0.0:%d/api/v1/payments%n", boundPort);
+        System.out.printf("  Health   : http://0.0.0.0:%d/api/v1/health%n", boundPort);
+        System.out.printf("  Repo     : %s%n", repoLabel);
         System.out.println("  Press Ctrl+C to stop.");
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("\nShutting down...");
             server.stop();
+            if (repository instanceof AutoCloseable ac) {
+                try { ac.close(); } catch (Exception ignored) { }
+            }
             System.out.println("Done.");
         }));
 

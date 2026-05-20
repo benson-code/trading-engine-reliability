@@ -9,7 +9,6 @@ import io.restassured.http.ContentType;
 import org.junit.jupiter.api.*;
 
 import java.math.BigDecimal;
-import java.net.ServerSocket;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
@@ -38,16 +37,12 @@ class PaymentFlowTest {
 
     @BeforeEach
     void startServer() throws Exception {
-        int port;
-        try (ServerSocket probe = new ServerSocket(0)) {
-            port = probe.getLocalPort();
-        }
         repo = new InMemoryPaymentRepository();
-        server = new PaymentApiServer(port, new PaymentService(repo), 20);
+        server = new PaymentApiServer(0, new PaymentService(repo), 20);
         server.start();
 
         RestAssured.baseURI = "http://localhost";
-        RestAssured.port = port;
+        RestAssured.port = server.getPort();
     }
 
     @AfterEach

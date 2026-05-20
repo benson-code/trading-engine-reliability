@@ -65,10 +65,12 @@ public class PaymentApiServer {
     }
 
     public PaymentApiServer(int port, PaymentService paymentService, long settleDelayMs) throws IOException {
-        this.port = port;
         this.paymentService = paymentService;
         this.settleDelayMs = settleDelayMs;
+        // port 0 → the OS binds a free ephemeral port atomically. No
+        // probe-close-rebind window (eliminates the BUG-02-class TOCTOU).
         this.server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
+        this.port = server.getAddress().getPort();   // the actual bound port
         server.createContext("/api/v1/payments", this::handlePayments);
         server.createContext("/api/v1/health",   this::handleHealth);
         server.setExecutor(Executors.newFixedThreadPool(8));
@@ -124,6 +126,10 @@ public class PaymentApiServer {
             String code = e.getMessage() != null && e.getMessage().contains("positive")
                     ? "INVALID_AMOUNT" : "VALIDATION_ERROR";
             send(ex, 400, toJson(Map.of("error", code, "message", String.valueOf(e.getMessage()))));
+            return;
+        } catch (java.util.NoSuchElementException e) {
+            send(ex, 404, toJson(Map.of("error", "ACCOUNT_NOT_FOUND",
+                    "message", String.valueOf(e.getMessage()))));
             return;
         } catch (IllegalStateException e) {
             send(ex, 402, toJson(Map.of("error", "INSUFFICIENT_BALANCE",

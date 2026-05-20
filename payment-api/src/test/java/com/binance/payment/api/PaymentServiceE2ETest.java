@@ -8,8 +8,6 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import org.junit.jupiter.api.*;
 
-import java.net.ServerSocket;
-
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
@@ -34,19 +32,14 @@ class PaymentServiceE2ETest {
 
     @BeforeAll
     static void startRealServer() throws Exception {
-        // Grab a free port then release it before binding (BUG-02 pattern) —
-        // avoids the fixed-port clashes the WireMock suites are pinned to.
-        int port;
-        try (ServerSocket probe = new ServerSocket(0)) {
-            port = probe.getLocalPort();
-        }
+        // port 0 → ephemeral bind; no probe-close-rebind race.
         PaymentService service =
                 new PaymentService(new InMemoryPaymentRepository());
-        server = new PaymentApiServer(port, service, 30);  // 30 ms settle
+        server = new PaymentApiServer(0, service, 30);  // 30 ms settle
         server.start();
 
         RestAssured.baseURI = "http://localhost";
-        RestAssured.port = port;
+        RestAssured.port = server.getPort();
     }
 
     @AfterAll
