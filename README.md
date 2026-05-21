@@ -129,9 +129,17 @@ payment-api/
 
 | Method | Endpoint | Success | Error codes |
 |---|---|---|---|
-| POST | `/api/v1/payments` | `202 Accepted` (new) / `200 OK` (idempotent replay) | `400 INVALID_AMOUNT`, `400 VALIDATION_ERROR`, `402 INSUFFICIENT_BALANCE`, `404 ACCOUNT_NOT_FOUND` |
+| POST | `/api/v1/payments` | `202 Accepted` (new) / `200 OK` (idempotent replay) | `400 INVALID_AMOUNT`, `400 VALIDATION_ERROR`, `400 BAD_REQUEST`, `402 INSUFFICIENT_BALANCE`, `404 ACCOUNT_NOT_FOUND`, `500 INTERNAL_ERROR` |
 | GET | `/api/v1/payments/{jobId}/status` | `200 OK` with `status: PENDING` / `SUCCESS` | `404 JOB_NOT_FOUND` |
 | GET | `/api/v1/health` | `200 {"status":"UP"}` | — |
+
+> **Error-code accuracy:** `402 INSUFFICIENT_BALANCE` is reserved for an actual
+> insufficient balance (signalled by `InsufficientBalanceException`). Field
+> lengths are bounded at the service layer to the schema limits
+> (`idempotency_key` ≤ 100, `user_id`/`order_id` ≤ 50, `currency` ≤ 10), so
+> oversized input returns `400 VALIDATION_ERROR` — never an opaque `402`/`500`
+> from a SQL truncation. Any genuinely unexpected server fault returns
+> `500 INTERNAL_ERROR`.
 
 ### DB Schema (H2 in MySQL mode — `JdbcPaymentRepository`)
 

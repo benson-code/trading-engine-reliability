@@ -56,7 +56,7 @@ public class InMemoryPaymentRepository implements PaymentRepository {
         // key, even when concurrent retries race here simultaneously.
         return byIdempotencyKey.computeIfAbsent(request.getIdempotencyKey(), key -> {
             if (!deductBalance(request.getUserId(), request.getAmount())) {
-                throw new IllegalStateException(
+                throw new InsufficientBalanceException(
                         "Insufficient balance for userId=" + request.getUserId());
             }
             long seq = sequence.getAndIncrement();

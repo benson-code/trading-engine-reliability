@@ -110,6 +110,26 @@ class PaymentServiceE2ETest {
             .body("error", equalTo("INVALID_AMOUNT"));
     }
 
+    @Test
+    @Story("HTTP code accuracy — D2 regression guard")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Over-length idempotency key returns 400 VALIDATION_ERROR (not 402 / 500)")
+    void overlong_idempotency_key_returns_400_not_402() {
+        // Pre-fix this surfaced as 402 INSUFFICIENT_BALANCE because the SQL
+        // truncation got caught as a generic IllegalStateException and mapped
+        // to 402 — clearly the wrong code. Service-layer length validation now
+        // catches it cleanly.
+        given()
+            .contentType(ContentType.JSON)
+            .body(body("ORD_E2E_LONG", "K".repeat(101), "10.00"))
+        .when()
+            .post("/api/v1/payments")
+        .then()
+            .statusCode(400)
+            .body("error", equalTo("VALIDATION_ERROR"))
+            .body("message", containsString("Idempotency key too long"));
+    }
+
     // ─── Idempotency ─────────────────────────────────────────────────────────
 
     @Test

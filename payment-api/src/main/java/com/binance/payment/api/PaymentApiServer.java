@@ -131,8 +131,15 @@ public class PaymentApiServer {
             send(ex, 404, toJson(Map.of("error", "ACCOUNT_NOT_FOUND",
                     "message", String.valueOf(e.getMessage()))));
             return;
-        } catch (IllegalStateException e) {
+        } catch (com.binance.payment.service.InsufficientBalanceException e) {
+            // Specific subclass — must be caught BEFORE IllegalStateException.
             send(ex, 402, toJson(Map.of("error", "INSUFFICIENT_BALANCE",
+                    "message", String.valueOf(e.getMessage()))));
+            return;
+        } catch (IllegalStateException e) {
+            // Unexpected server-side failure (e.g. an SQL error that slipped past
+            // service-layer validation). Surface as 500, not 402.
+            send(ex, 500, toJson(Map.of("error", "INTERNAL_ERROR",
                     "message", String.valueOf(e.getMessage()))));
             return;
         }

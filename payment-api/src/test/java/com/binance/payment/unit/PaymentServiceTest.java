@@ -90,6 +90,46 @@ class PaymentServiceTest {
         assertTrue(ex.getMessage().contains("Idempotency"));
     }
 
+    @Test
+    @Story("Validation — length bounds match the DB schema")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Idempotency key longer than 100 chars is rejected at the service layer")
+    void should_reject_overlong_idempotency_key() {
+        PaymentRequest request = PaymentRequest.builder()
+                .orderId("ORD_X")
+                .userId("USER_001")
+                .amount(new BigDecimal("10.00"))
+                .currency("USDT")
+                .idempotencyKey("K".repeat(101))   // schema is VARCHAR(100)
+                .build();
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> paymentService.processPayment(request));
+        assertTrue(ex.getMessage().contains("Idempotency key too long"));
+        verify(repository, never()).createPayment(any());
+    }
+
+    @Test
+    @Story("Validation — length bounds match the DB schema")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("User ID longer than 50 chars is rejected at the service layer")
+    void should_reject_overlong_user_id() {
+        PaymentRequest request = PaymentRequest.builder()
+                .orderId("ORD_Y")
+                .userId("U".repeat(51))            // schema is VARCHAR(50)
+                .amount(new BigDecimal("10.00"))
+                .currency("USDT")
+                .idempotencyKey("OK_KEY")
+                .build();
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> paymentService.processPayment(request));
+        assertTrue(ex.getMessage().contains("User ID too long"));
+        verify(repository, never()).createPayment(any());
+    }
+
     // ─── Idempotency Tests ───────────────────────────────────────────────────
 
     @Test

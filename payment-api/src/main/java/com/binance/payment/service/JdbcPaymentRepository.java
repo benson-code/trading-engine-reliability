@@ -168,7 +168,7 @@ public class JdbcPaymentRepository implements PaymentRepository, AutoCloseable {
             if (rows == 0) {
                 c.rollback();
                 throw accountExists(c, request.getUserId())
-                        ? new IllegalStateException(
+                        ? new InsufficientBalanceException(
                               "Insufficient balance for userId=" + request.getUserId())
                         : new NoSuchElementException(
                               "Account not found: " + request.getUserId());
