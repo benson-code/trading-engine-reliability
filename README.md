@@ -9,7 +9,8 @@ Full-cycle Binance QA portfolio: a runnable Payment API with real transactional 
 - **Real service, real DB, real ACID** — `JdbcPaymentRepository.createPayment` runs the balance debit and the payment insert in **one transaction**; `UNIQUE(idempotency_key)` is the concurrency backstop. A retry that races and loses the constraint rolls back — **which undoes its debit** — so the account is debited exactly once regardless of how many retries arrive ([`JdbcPaymentRepositoryTest`](payment-api/src/test/java/com/binance/payment/db/JdbcPaymentRepositoryTest.java)).
 - **Concurrency proven, not asserted** — 16 threads call `createPayment` with the same idempotency key; the test ([`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)) asserts exactly-one debit and one `payment_id` on **both** repository implementations.
 - **No WireMock theatre** — every API and integration test now exercises the real `PaymentService` through an embedded HTTP server. The three pre-existing WireMock tests were rewritten to hit the real service ([commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4)).
-- **CI-enforced quality** — 93 tests in CI · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
+- **Payment-grade input & access control** — currency must match the account (`422`), amount precision is bounded to `DECIMAL(18,8)` (`400 INVALID_PRECISION`, no silent truncation), and the payment endpoints require an `X-API-Key` (constant-time compared) when configured ([`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)).
+- **CI-enforced quality** — 98 tests in CI · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
 
 ---
 
@@ -17,12 +18,12 @@ Full-cycle Binance QA portfolio: a runnable Payment API with real transactional 
 
 ```
 binance-qa-suite/                  ← Monorepo root (Maven parent POM)
-├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 38 tests)
+├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 43 tests)
 ├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 55 tests in CI / 63 with MySQL)
 └── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15)
 ```
 
-**One command runs all 93 Java tests:**
+**One command runs all 98 Java tests:**
 ```bash
 mvn test   # runs payment-api + trading-engine-simulator in sequence
 ```
@@ -48,7 +49,7 @@ Full-cycle automated testing covering API testing, database verification, idempo
 | Integration / E2E | Full flow + async settlement against the real service | RestAssured, embedded JDK HTTP server |
 | Concurrency | N-thread idempotency race → exactly-once debit | ExecutorService, both repos |
 
-**Total: 38 test cases** (16 original + 5 real-service E2E + 6 P3: JDBC ACID/negative + concurrency + 3 D2: length validation & HTTP-code accuracy + 4 D1/A4: currency match + 4 D3: amount precision)
+**Total: 43 test cases** (16 original + 5 real-service E2E + 6 P3: JDBC ACID/negative + concurrency + 3 D2: length validation & HTTP-code accuracy + 4 D1/A4: currency match + 4 D3: amount precision + 5 A2: API-key auth)
 
 > All API, integration and concurrency tests exercise the real
 > `PaymentService` through an embedded HTTP server — no WireMock.
@@ -129,9 +130,14 @@ payment-api/
 
 | Method | Endpoint | Success | Error codes |
 |---|---|---|---|
-| POST | `/api/v1/payments` | `202 Accepted` (new) / `200 OK` (idempotent replay) | `400 INVALID_AMOUNT`, `400 INVALID_PRECISION`, `400 VALIDATION_ERROR`, `400 BAD_REQUEST`, `402 INSUFFICIENT_BALANCE`, `404 ACCOUNT_NOT_FOUND`, `422 CURRENCY_MISMATCH`, `500 INTERNAL_ERROR` |
-| GET | `/api/v1/payments/{jobId}/status` | `200 OK` with `status: PENDING` / `SUCCESS` | `404 JOB_NOT_FOUND` |
-| GET | `/api/v1/health` | `200 {"status":"UP"}` | — |
+| POST | `/api/v1/payments` | `202 Accepted` (new) / `200 OK` (idempotent replay) | `400 INVALID_AMOUNT`, `400 INVALID_PRECISION`, `400 VALIDATION_ERROR`, `400 BAD_REQUEST`, `401 UNAUTHORIZED`, `402 INSUFFICIENT_BALANCE`, `404 ACCOUNT_NOT_FOUND`, `422 CURRENCY_MISMATCH`, `500 INTERNAL_ERROR` |
+| GET | `/api/v1/payments/{jobId}/status` | `200 OK` with `status: PENDING` / `SUCCESS` | `401 UNAUTHORIZED`, `404 JOB_NOT_FOUND` |
+| GET | `/api/v1/health` | `200 {"status":"UP"}` | — (no auth — readiness probe) |
+
+> **Authentication:** when `PAYMENT_API_KEY` is configured, the payment
+> endpoints require a matching `X-API-Key` header (constant-time compared) or
+> return `401 UNAUTHORIZED`; `/api/v1/health` is always exempt. With no key
+> configured the API is open (demo default).
 
 > **Error-code accuracy:** `402 INSUFFICIENT_BALANCE` is reserved for an actual
 > insufficient balance (signalled by `InsufficientBalanceException`). Field
@@ -171,7 +177,7 @@ The `UNIQUE(idempotency_key)` constraint is the concurrency backstop: under a ra
 ### How to Run
 
 ```bash
-# From repo root — runs all 93 tests (both modules)
+# From repo root — runs all 98 tests (both modules)
 mvn test
 
 # Payment module only
@@ -185,6 +191,10 @@ java -jar payment-api/target/payment-api-qa-framework-1.0.0.jar 8091
 # Same service on the real JDBC repo (H2 in-mem, MySQL mode, strict accounts):
 PAYMENT_REPO=jdbc java -jar payment-api/target/payment-api-qa-framework-1.0.0.jar 8091
 # seeded demo account: USER_DEMO  (unknown users → 404 ACCOUNT_NOT_FOUND)
+
+# With X-API-Key authentication enabled:
+PAYMENT_API_KEY=secret java -jar payment-api/target/payment-api-qa-framework-1.0.0.jar 8091
+# payments now require:  curl -H "X-API-Key: secret" ...   (else 401); /health stays open
 
 # Generate Allure report
 cd payment-api && mvn allure:report

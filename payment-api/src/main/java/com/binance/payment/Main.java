@@ -47,8 +47,14 @@ public class Main {
             repoLabel  = "in-memory (no external DB)";
         }
 
+        // PAYMENT_API_KEY enables X-API-Key authentication; unset = open (demo).
+        String apiKey = System.getenv("PAYMENT_API_KEY");
+        String authLabel = (apiKey == null || apiKey.isBlank())
+                ? "disabled (set PAYMENT_API_KEY to enable)"
+                : "enabled (X-API-Key required)";
+
         PaymentService   service = new PaymentService(repository);
-        PaymentApiServer server  = new PaymentApiServer(port, service);
+        PaymentApiServer server  = new PaymentApiServer(port, service, 50, apiKey);
         server.start();
         int boundPort = server.getPort();
 
@@ -58,6 +64,7 @@ public class Main {
         System.out.printf("  REST API : http://0.0.0.0:%d/api/v1/payments%n", boundPort);
         System.out.printf("  Health   : http://0.0.0.0:%d/api/v1/health%n", boundPort);
         System.out.printf("  Repo     : %s%n", repoLabel);
+        System.out.printf("  Auth     : %s%n", authLabel);
         System.out.println("  Press Ctrl+C to stop.");
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {

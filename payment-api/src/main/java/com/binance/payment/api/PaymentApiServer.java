@@ -46,6 +46,9 @@ public class PaymentApiServer {
     private final ObjectMapper mapper = new ObjectMapper();
     private final int port;
 
+    /** Expected {@code X-API-Key}. When null/blank, authentication is disabled. */
+    private final String apiKey;
+
     /** Async settlement: a created payment moves PENDING → SUCCESS after this delay. */
     private final long settleDelayMs;
     private final ScheduledExecutorService settler =
@@ -61,12 +64,18 @@ public class PaymentApiServer {
     private record Job(String paymentId, String status) {}
 
     public PaymentApiServer(int port, PaymentService paymentService) throws IOException {
-        this(port, paymentService, 50);
+        this(port, paymentService, 50, null);
     }
 
     public PaymentApiServer(int port, PaymentService paymentService, long settleDelayMs) throws IOException {
+        this(port, paymentService, settleDelayMs, null);
+    }
+
+    public PaymentApiServer(int port, PaymentService paymentService, long settleDelayMs, String apiKey)
+            throws IOException {
         this.paymentService = paymentService;
         this.settleDelayMs = settleDelayMs;
+        this.apiKey = (apiKey == null || apiKey.isBlank()) ? null : apiKey;
         // port 0 → the OS binds a free ephemeral port atomically. No
         // probe-close-rebind window (eliminates the BUG-02-class TOCTOU).
         this.server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
@@ -90,6 +99,7 @@ public class PaymentApiServer {
     private void handlePayments(HttpExchange ex) throws IOException {
         cors(ex);
         if (preflight(ex)) return;
+        if (unauthorized(ex)) return;   // /health stays exempt — it does not call this
 
         String method = ex.getRequestMethod();
         String[] parts = ex.getRequestURI().getPath().split("/");
@@ -186,10 +196,28 @@ public class PaymentApiServer {
 
     // ── Helpers (mirrors TradingApiServer) ───────────────────────────────────
 
+    /**
+     * Enforces the {@code X-API-Key} header when an API key is configured.
+     * Returns true (and sends 401) when the request is rejected. No-op when
+     * authentication is disabled (no key configured).
+     */
+    private boolean unauthorized(HttpExchange ex) throws IOException {
+        if (apiKey == null) return false;   // auth disabled
+        String provided = ex.getRequestHeaders().getFirst("X-API-Key");
+        // Constant-time comparison — avoids leaking the key via response timing.
+        boolean ok = provided != null && java.security.MessageDigest.isEqual(
+                provided.getBytes(StandardCharsets.UTF_8),
+                apiKey.getBytes(StandardCharsets.UTF_8));
+        if (ok) return false;
+        send(ex, 401, toJson(Map.of("error", "UNAUTHORIZED",
+                "message", "Missing or invalid X-API-Key")));
+        return true;
+    }
+
     private void cors(HttpExchange ex) {
         ex.getResponseHeaders().set("Access-Control-Allow-Origin",  "*");
         ex.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        ex.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key");
+        ex.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key, X-API-Key");
     }
 
     private boolean preflight(HttpExchange ex) throws IOException {
