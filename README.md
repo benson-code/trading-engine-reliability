@@ -9,7 +9,7 @@ Full-cycle Binance QA portfolio: a runnable Payment API with real transactional 
 - **Real service, real DB, real ACID** — `JdbcPaymentRepository.createPayment` runs the balance debit and the payment insert in **one transaction**; `UNIQUE(idempotency_key)` is the concurrency backstop. A retry that races and loses the constraint rolls back — **which undoes its debit** — so the account is debited exactly once regardless of how many retries arrive ([`JdbcPaymentRepositoryTest`](payment-api/src/test/java/com/binance/payment/db/JdbcPaymentRepositoryTest.java)).
 - **Concurrency proven, not asserted** — 16 threads call `createPayment` with the same idempotency key; the test ([`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)) asserts exactly-one debit and one `payment_id` on **both** repository implementations.
 - **No WireMock theatre** — every API and integration test now exercises the real `PaymentService` through an embedded HTTP server. The three pre-existing WireMock tests were rewritten to hit the real service ([commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4)).
-- **CI-enforced quality** — 85 tests in CI · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
+- **CI-enforced quality** — 89 tests in CI · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
 
 ---
 
@@ -17,12 +17,12 @@ Full-cycle Binance QA portfolio: a runnable Payment API with real transactional 
 
 ```
 binance-qa-suite/                  ← Monorepo root (Maven parent POM)
-├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 30 tests)
+├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 34 tests)
 ├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 55 tests in CI / 63 with MySQL)
 └── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15)
 ```
 
-**One command runs all 85 Java tests:**
+**One command runs all 89 Java tests:**
 ```bash
 mvn test   # runs payment-api + trading-engine-simulator in sequence
 ```
@@ -48,7 +48,7 @@ Full-cycle automated testing covering API testing, database verification, idempo
 | Integration / E2E | Full flow + async settlement against the real service | RestAssured, embedded JDK HTTP server |
 | Concurrency | N-thread idempotency race → exactly-once debit | ExecutorService, both repos |
 
-**Total: 30 test cases** (16 original + 5 real-service E2E + 6 P3: JDBC ACID/negative + concurrency + 3 D2: length validation & HTTP-code accuracy)
+**Total: 34 test cases** (16 original + 5 real-service E2E + 6 P3: JDBC ACID/negative + concurrency + 3 D2: length validation & HTTP-code accuracy + 4 D1/A4: currency match)
 
 > All API, integration and concurrency tests exercise the real
 > `PaymentService` through an embedded HTTP server — no WireMock.
@@ -129,7 +129,7 @@ payment-api/
 
 | Method | Endpoint | Success | Error codes |
 |---|---|---|---|
-| POST | `/api/v1/payments` | `202 Accepted` (new) / `200 OK` (idempotent replay) | `400 INVALID_AMOUNT`, `400 VALIDATION_ERROR`, `400 BAD_REQUEST`, `402 INSUFFICIENT_BALANCE`, `404 ACCOUNT_NOT_FOUND`, `500 INTERNAL_ERROR` |
+| POST | `/api/v1/payments` | `202 Accepted` (new) / `200 OK` (idempotent replay) | `400 INVALID_AMOUNT`, `400 VALIDATION_ERROR`, `400 BAD_REQUEST`, `402 INSUFFICIENT_BALANCE`, `404 ACCOUNT_NOT_FOUND`, `422 CURRENCY_MISMATCH`, `500 INTERNAL_ERROR` |
 | GET | `/api/v1/payments/{jobId}/status` | `200 OK` with `status: PENDING` / `SUCCESS` | `404 JOB_NOT_FOUND` |
 | GET | `/api/v1/health` | `200 {"status":"UP"}` | — |
 
@@ -138,8 +138,10 @@ payment-api/
 > lengths are bounded at the service layer to the schema limits
 > (`idempotency_key` ≤ 100, `user_id`/`order_id` ≤ 50, `currency` ≤ 10), so
 > oversized input returns `400 VALIDATION_ERROR` — never an opaque `402`/`500`
-> from a SQL truncation. Any genuinely unexpected server fault returns
-> `500 INTERNAL_ERROR`.
+> from a SQL truncation. A payment whose `currency` differs from the account's
+> currency is rejected with `422 CURRENCY_MISMATCH` (well-formed but
+> unprocessable) — never silently accepted. Any genuinely unexpected server
+> fault returns `500 INTERNAL_ERROR`.
 
 ### DB Schema (H2 in MySQL mode — `JdbcPaymentRepository`)
 
@@ -166,7 +168,7 @@ The `UNIQUE(idempotency_key)` constraint is the concurrency backstop: under a ra
 ### How to Run
 
 ```bash
-# From repo root — runs all 85 tests (both modules)
+# From repo root — runs all 89 tests (both modules)
 mvn test
 
 # Payment module only

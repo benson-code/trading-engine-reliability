@@ -111,6 +111,31 @@ class PaymentServiceE2ETest {
     }
 
     @Test
+    @Story("Currency mismatch — D1 regression guard")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Paying BTC against a USDT account returns 422 CURRENCY_MISMATCH")
+    void currency_mismatch_returns_422() {
+        // USER_E2E is auto-provisioned in the default currency (USDT); a BTC
+        // payment must be rejected (pre-fix it was silently accepted as 202).
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                    {
+                        "order_id": "ORD_E2E_CCY",
+                        "user_id": "USER_E2E",
+                        "amount": 1.5,
+                        "currency": "BTC",
+                        "idempotency_key": "IDEM_E2E_CCY"
+                    }
+                    """)
+        .when()
+            .post("/api/v1/payments")
+        .then()
+            .statusCode(422)
+            .body("error", equalTo("CURRENCY_MISMATCH"));
+    }
+
+    @Test
     @Story("HTTP code accuracy — D2 regression guard")
     @Severity(SeverityLevel.CRITICAL)
     @DisplayName("Over-length idempotency key returns 400 VALIDATION_ERROR (not 402 / 500)")

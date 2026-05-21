@@ -47,6 +47,9 @@ public class PaymentService {
         if (request.getUserId() == null || request.getUserId().isBlank()) {
             throw new IllegalArgumentException("User ID is required");
         }
+        if (request.getCurrency() == null || request.getCurrency().isBlank()) {
+            throw new IllegalArgumentException("Currency is required");
+        }
         // Length bounds match the persistence schema so violations surface as
         // 400 VALIDATION_ERROR here, never as opaque 5xx from a SQL truncation.
         if (request.getIdempotencyKey().length() > MAX_IDEMPOTENCY_KEY) {

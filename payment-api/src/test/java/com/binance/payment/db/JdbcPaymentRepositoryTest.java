@@ -2,6 +2,7 @@ package com.binance.payment.db;
 
 import com.binance.payment.model.PaymentRequest;
 import com.binance.payment.model.PaymentResponse;
+import com.binance.payment.service.CurrencyMismatchException;
 import com.binance.payment.service.JdbcPaymentRepository;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.AfterEach;
@@ -118,5 +119,47 @@ class JdbcPaymentRepositoryTest {
                 "duplicate key must yield the same payment_id");
         assertEquals(0, new BigDecimal("800.00").compareTo(repo.getBalance("U4")),
                 "balance must reflect exactly ONE 200 debit despite two calls");
+    }
+
+    // ─── Currency match (D1 / A4) ────────────────────────────────────────────
+
+    @Test
+    @Story("Currency — mismatch is rejected, nothing persisted")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Paying a different currency than the account holds throws CurrencyMismatchException")
+    void currency_mismatch_is_rejected() {
+        repo.seedAccount("U5", new BigDecimal("1000.00"), "USDT");
+
+        PaymentRequest btcPayment = PaymentRequest.builder()
+                .orderId("O5").userId("U5")
+                .amount(new BigDecimal("1.0")).currency("BTC")   // account holds USDT
+                .idempotencyKey("K5").build();
+
+        assertThrows(CurrencyMismatchException.class,
+                () -> repo.createPayment(btcPayment));
+
+        assertEquals(0, new BigDecimal("1000.00").compareTo(repo.getBalance("U5")),
+                "balance must be untouched on currency mismatch");
+        assertTrue(repo.findByIdempotencyKey("K5").isEmpty(),
+                "no payment row may exist after a currency mismatch");
+    }
+
+    @Test
+    @Story("Currency — matching currency succeeds")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Paying the account's own currency succeeds (non-USDT account)")
+    void matching_currency_succeeds() {
+        repo.seedAccount("U6", new BigDecimal("5.0"), "BTC");
+
+        PaymentRequest btcPayment = PaymentRequest.builder()
+                .orderId("O6").userId("U6")
+                .amount(new BigDecimal("1.5")).currency("BTC")
+                .idempotencyKey("K6").build();
+
+        PaymentResponse resp = repo.createPayment(btcPayment);
+
+        assertNotNull(resp.getPaymentId());
+        assertEquals(0, new BigDecimal("3.5").compareTo(repo.getBalance("U6")),
+                "BTC account debited 1.5 from 5.0");
     }
 }

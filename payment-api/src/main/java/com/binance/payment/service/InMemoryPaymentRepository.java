@@ -31,18 +31,31 @@ public class InMemoryPaymentRepository implements PaymentRepository {
 
     /** Starting balance auto-provisioned for any user not explicitly seeded. */
     public static final BigDecimal DEFAULT_BALANCE = new BigDecimal("1000000");
+    /** Currency auto-provisioned for any user not explicitly seeded. */
+    public static final String DEFAULT_CURRENCY = "USDT";
 
     private final ConcurrentHashMap<String, PaymentResponse> byIdempotencyKey = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, BigDecimal>      balances         = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String>          currencies       = new ConcurrentHashMap<>();
     private final AtomicLong sequence = new AtomicLong(1);
 
-    /** Pre-fund an account (used by tests / explicit setup). */
+    /** Pre-fund an account in the default currency (USDT). */
     public void seedAccount(String userId, BigDecimal balance) {
+        seedAccount(userId, balance, DEFAULT_CURRENCY);
+    }
+
+    /** Pre-fund an account in a specific currency. */
+    public void seedAccount(String userId, BigDecimal balance, String currency) {
         balances.put(userId, balance);
+        currencies.put(userId, currency);
     }
 
     public BigDecimal getBalance(String userId) {
         return balances.getOrDefault(userId, DEFAULT_BALANCE);
+    }
+
+    public String getCurrency(String userId) {
+        return currencies.getOrDefault(userId, DEFAULT_CURRENCY);
     }
 
     @Override
@@ -55,6 +68,12 @@ public class InMemoryPaymentRepository implements PaymentRepository {
         // computeIfAbsent makes the create body run exactly once per idempotency
         // key, even when concurrent retries race here simultaneously.
         return byIdempotencyKey.computeIfAbsent(request.getIdempotencyKey(), key -> {
+            String acctCurrency = getCurrency(request.getUserId());
+            if (!acctCurrency.equalsIgnoreCase(request.getCurrency())) {
+                throw new CurrencyMismatchException(
+                        "Account " + request.getUserId() + " holds " + acctCurrency
+                        + ", cannot pay in " + request.getCurrency());
+            }
             if (!deductBalance(request.getUserId(), request.getAmount())) {
                 throw new InsufficientBalanceException(
                         "Insufficient balance for userId=" + request.getUserId());

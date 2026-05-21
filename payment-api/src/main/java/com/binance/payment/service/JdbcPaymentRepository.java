@@ -95,13 +95,19 @@ public class JdbcPaymentRepository implements PaymentRepository, AutoCloseable {
         }
     }
 
-    /** Pre-fund an account (composition-root / test setup). */
+    /** Pre-fund an account in the default currency (USDT). */
     public void seedAccount(String userId, BigDecimal balance) {
+        seedAccount(userId, balance, "USDT");
+    }
+
+    /** Pre-fund an account in a specific currency. */
+    public void seedAccount(String userId, BigDecimal balance, String currency) {
         try (Connection c = conn();
              PreparedStatement ps = c.prepareStatement(
-                 "MERGE INTO accounts (user_id, balance) KEY(user_id) VALUES (?, ?)")) {
+                 "MERGE INTO accounts (user_id, balance, currency) KEY(user_id) VALUES (?, ?, ?)")) {
             ps.setString(1, userId);
             ps.setBigDecimal(2, balance);
+            ps.setString(3, currency);
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("seedAccount failed for " + userId, e);
@@ -155,7 +161,24 @@ public class JdbcPaymentRepository implements PaymentRepository, AutoCloseable {
             c = conn();
             c.setAutoCommit(false);
 
-            // 1. Atomic conditional debit — the WHERE clause is the guard.
+            // 1. Existence + currency check. Both are immutable for an account
+            //    (no delete/currency-change API), so this is safe outside the
+            //    balance-race critical section below.
+            String acctCurrency = accountCurrency(c, request.getUserId());
+            if (acctCurrency == null) {
+                c.rollback();
+                throw new NoSuchElementException("Account not found: " + request.getUserId());
+            }
+            if (!acctCurrency.equalsIgnoreCase(request.getCurrency())) {
+                c.rollback();
+                throw new CurrencyMismatchException(
+                        "Account " + request.getUserId() + " holds " + acctCurrency
+                        + ", cannot pay in " + request.getCurrency());
+            }
+
+            // 2. Atomic conditional debit — the WHERE clause is the race guard.
+            //    Existence is already confirmed, so rows == 0 here means only
+            //    one thing: insufficient balance.
             int rows;
             try (PreparedStatement ps = c.prepareStatement(
                     "UPDATE accounts SET balance = balance - ? " +
@@ -167,14 +190,11 @@ public class JdbcPaymentRepository implements PaymentRepository, AutoCloseable {
             }
             if (rows == 0) {
                 c.rollback();
-                throw accountExists(c, request.getUserId())
-                        ? new InsufficientBalanceException(
-                              "Insufficient balance for userId=" + request.getUserId())
-                        : new NoSuchElementException(
-                              "Account not found: " + request.getUserId());
+                throw new InsufficientBalanceException(
+                        "Insufficient balance for userId=" + request.getUserId());
             }
 
-            // 2. Persist the payment — UNIQUE(idempotency_key) is the concurrency backstop.
+            // 3. Persist the payment — UNIQUE(idempotency_key) is the concurrency backstop.
             try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO payments " +
                     "(payment_id, order_id, user_id, amount, status, idempotency_key) " +
@@ -242,11 +262,14 @@ public class JdbcPaymentRepository implements PaymentRepository, AutoCloseable {
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    private boolean accountExists(Connection c, String userId) throws SQLException {
+    /** The account's currency, or {@code null} if the account does not exist. */
+    private String accountCurrency(Connection c, String userId) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(
-                "SELECT 1 FROM accounts WHERE user_id = ?")) {
+                "SELECT currency FROM accounts WHERE user_id = ?")) {
             ps.setString(1, userId);
-            try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
         }
     }
 

@@ -131,6 +131,10 @@ public class PaymentApiServer {
             send(ex, 404, toJson(Map.of("error", "ACCOUNT_NOT_FOUND",
                     "message", String.valueOf(e.getMessage()))));
             return;
+        } catch (com.binance.payment.service.CurrencyMismatchException e) {
+            send(ex, 422, toJson(Map.of("error", "CURRENCY_MISMATCH",
+                    "message", String.valueOf(e.getMessage()))));
+            return;
         } catch (com.binance.payment.service.InsufficientBalanceException e) {
             // Specific subclass — must be caught BEFORE IllegalStateException.
             send(ex, 402, toJson(Map.of("error", "INSUFFICIENT_BALANCE",

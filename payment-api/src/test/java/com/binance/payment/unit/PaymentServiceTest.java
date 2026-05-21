@@ -111,6 +111,26 @@ class PaymentServiceTest {
     }
 
     @Test
+    @Story("Validation")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Missing currency is rejected")
+    void should_reject_missing_currency() {
+        PaymentRequest request = PaymentRequest.builder()
+                .orderId("ORD_C")
+                .userId("USER_001")
+                .amount(new BigDecimal("10.00"))
+                .currency(null)
+                .idempotencyKey("CCY_KEY")
+                .build();
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> paymentService.processPayment(request));
+        assertTrue(ex.getMessage().contains("Currency is required"));
+        verify(repository, never()).createPayment(any());
+    }
+
+    @Test
     @Story("Validation — length bounds match the DB schema")
     @Severity(SeverityLevel.NORMAL)
     @DisplayName("User ID longer than 50 chars is rejected at the service layer")
