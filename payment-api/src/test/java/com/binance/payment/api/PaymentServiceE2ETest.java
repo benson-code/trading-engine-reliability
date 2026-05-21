@@ -111,6 +111,37 @@ class PaymentServiceE2ETest {
     }
 
     @Test
+    @Story("Amount precision — D3 regression guard")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Amount with 9 decimals returns 400 INVALID_PRECISION (not silently truncated)")
+    void overprecise_amount_returns_400() {
+        // Pre-fix this was accepted as 202 and the DB silently truncated to 8
+        // decimals (DECIMAL(18,8)).
+        given()
+            .contentType(ContentType.JSON)
+            .body(body("ORD_E2E_PREC", "IDEM_E2E_PREC", "0.123456789"))
+        .when()
+            .post("/api/v1/payments")
+        .then()
+            .statusCode(400)
+            .body("error", equalTo("INVALID_PRECISION"));
+    }
+
+    @Test
+    @Story("Amount precision — trailing zeros accepted")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Amount 100.500000000 (= 100.5) is accepted, not over-rejected")
+    void trailing_zero_amount_accepted() {
+        given()
+            .contentType(ContentType.JSON)
+            .body(body("ORD_E2E_TZ", "IDEM_E2E_TZ", "100.500000000"))
+        .when()
+            .post("/api/v1/payments")
+        .then()
+            .statusCode(202);
+    }
+
+    @Test
     @Story("Currency mismatch — D1 regression guard")
     @Severity(SeverityLevel.CRITICAL)
     @DisplayName("Paying BTC against a USDT account returns 422 CURRENCY_MISMATCH")

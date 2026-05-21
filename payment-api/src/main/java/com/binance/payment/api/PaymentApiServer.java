@@ -123,9 +123,11 @@ public class PaymentApiServer {
         try {
             resp = paymentService.processPayment(request);
         } catch (IllegalArgumentException e) {
-            String code = e.getMessage() != null && e.getMessage().contains("positive")
-                    ? "INVALID_AMOUNT" : "VALIDATION_ERROR";
-            send(ex, 400, toJson(Map.of("error", code, "message", String.valueOf(e.getMessage()))));
+            String msg = e.getMessage() == null ? "" : e.getMessage();
+            String code = msg.contains("positive")  ? "INVALID_AMOUNT"
+                        : msg.contains("precision") ? "INVALID_PRECISION"
+                        : "VALIDATION_ERROR";
+            send(ex, 400, toJson(Map.of("error", code, "message", msg)));
             return;
         } catch (java.util.NoSuchElementException e) {
             send(ex, 404, toJson(Map.of("error", "ACCOUNT_NOT_FOUND",

@@ -111,6 +111,49 @@ class PaymentServiceTest {
     }
 
     @Test
+    @Story("Validation — amount precision (DECIMAL(18,8))")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Amount with more than 8 significant decimals is rejected (no silent truncation)")
+    void should_reject_amount_over_8_decimals() {
+        PaymentRequest request = PaymentRequest.builder()
+                .orderId("ORD_P")
+                .userId("USER_001")
+                .amount(new BigDecimal("0.123456789"))   // 9 decimals
+                .currency("USDT")
+                .idempotencyKey("PREC_KEY")
+                .build();
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> paymentService.processPayment(request));
+        assertTrue(ex.getMessage().contains("precision"));
+        verify(repository, never()).createPayment(any());
+    }
+
+    @Test
+    @Story("Validation — amount precision (DECIMAL(18,8))")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Trailing zeros beyond 8 decimals are NOT over-rejected (100.500000000 = 100.5)")
+    void should_accept_amount_with_trailing_zero_padding() {
+        when(repository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
+        when(repository.createPayment(any()))
+                .thenReturn(PaymentResponse.builder().paymentId("PAY_OK").status("PENDING").build());
+
+        PaymentRequest request = PaymentRequest.builder()
+                .orderId("ORD_TZ")
+                .userId("USER_001")
+                .amount(new BigDecimal("100.500000000"))  // 9 places but only 1 significant
+                .currency("USDT")
+                .idempotencyKey("TZ_KEY")
+                .build();
+
+        PaymentResponse result = paymentService.processPayment(request);
+
+        assertEquals("PAY_OK", result.getPaymentId());
+        verify(repository, times(1)).createPayment(any());
+    }
+
+    @Test
     @Story("Validation")
     @Severity(SeverityLevel.NORMAL)
     @DisplayName("Missing currency is rejected")

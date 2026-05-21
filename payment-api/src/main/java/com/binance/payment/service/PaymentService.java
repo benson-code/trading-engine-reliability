@@ -36,10 +36,19 @@ public class PaymentService {
     static final int MAX_USER_ID         = 50;
     static final int MAX_ORDER_ID        = 50;
     static final int MAX_CURRENCY        = 10;
+    /** DECIMAL(18,8): at most 8 fractional digits. */
+    static final int MAX_AMOUNT_SCALE    = 8;
 
     private void validate(PaymentRequest request) {
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Amount must be positive");
+        }
+        // The amount column is DECIMAL(18,8). Reject more than 8 *significant*
+        // decimal places rather than letting the DB silently truncate. Trailing
+        // zeros are stripped first, so 100.500000000 (really 100.5) is fine.
+        if (request.getAmount().stripTrailingZeros().scale() > MAX_AMOUNT_SCALE) {
+            throw new IllegalArgumentException(
+                    "Amount precision exceeds " + MAX_AMOUNT_SCALE + " decimal places");
         }
         if (request.getIdempotencyKey() == null || request.getIdempotencyKey().isBlank()) {
             throw new IllegalArgumentException("Idempotency key is required");
