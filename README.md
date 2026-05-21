@@ -9,7 +9,7 @@ Full-cycle Binance QA portfolio: a runnable Payment API with real transactional 
 - **Real service, real DB, real ACID** — `JdbcPaymentRepository.createPayment` runs the balance debit and the payment insert in **one transaction**; `UNIQUE(idempotency_key)` is the concurrency backstop. A retry that races and loses the constraint rolls back — **which undoes its debit** — so the account is debited exactly once regardless of how many retries arrive ([`JdbcPaymentRepositoryTest`](payment-api/src/test/java/com/binance/payment/db/JdbcPaymentRepositoryTest.java)).
 - **Concurrency proven, not asserted** — 16 threads call `createPayment` with the same idempotency key; the test ([`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)) asserts exactly-one debit and one `payment_id` on **both** repository implementations.
 - **No WireMock theatre** — every API and integration test now exercises the real `PaymentService` through an embedded HTTP server. The three pre-existing WireMock tests were rewritten to hit the real service ([commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4)).
-- **CI-enforced quality** — 82 tests in CI · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
+- **CI-enforced quality** — 85 tests in CI · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
 
 ---
 
@@ -17,12 +17,12 @@ Full-cycle Binance QA portfolio: a runnable Payment API with real transactional 
 
 ```
 binance-qa-suite/                  ← Monorepo root (Maven parent POM)
-├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 27 tests)
+├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 30 tests)
 ├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 55 tests in CI / 63 with MySQL)
 └── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15)
 ```
 
-**One command runs all 82 Java tests:**
+**One command runs all 85 Java tests:**
 ```bash
 mvn test   # runs payment-api + trading-engine-simulator in sequence
 ```
@@ -48,7 +48,7 @@ Full-cycle automated testing covering API testing, database verification, idempo
 | Integration / E2E | Full flow + async settlement against the real service | RestAssured, embedded JDK HTTP server |
 | Concurrency | N-thread idempotency race → exactly-once debit | ExecutorService, both repos |
 
-**Total: 27 test cases** (16 original + 5 real-service E2E + 6 P3: JDBC ACID/negative + concurrency)
+**Total: 30 test cases** (16 original + 5 real-service E2E + 6 P3: JDBC ACID/negative + concurrency + 3 D2: length validation & HTTP-code accuracy)
 
 > All API, integration and concurrency tests exercise the real
 > `PaymentService` through an embedded HTTP server — no WireMock.
@@ -166,7 +166,7 @@ The `UNIQUE(idempotency_key)` constraint is the concurrency backstop: under a ra
 ### How to Run
 
 ```bash
-# From repo root — runs all 82 tests (both modules)
+# From repo root — runs all 85 tests (both modules)
 mvn test
 
 # Payment module only
@@ -350,7 +350,7 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 | Repo merge strategy | Squash **disabled** · Merge + Rebase allowed · auto-delete branch on merge |
 | Recommended merge mode | **Rebase merge** — keeps the P1 → P2 → P3 commits as a linear narrative on `main` |
 | CI triggers | `push` to `main`/`develop` · `pull_request` to `main` |
-| Required checks | `Java Tests (82 total)` · `UI Build Check (Next.js 15)` |
+| Required checks | `Java Tests` · `UI Build Check (Next.js 15)` |
 
 > The portfolio's history was built as a phased refactor. `git log --oneline main` shows the four steps from the empty-shell payment-api to the real ACID-backed service in chronological order — the commit log is itself a design document.
 
