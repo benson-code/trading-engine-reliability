@@ -17,3 +17,8 @@ trading-engine-ui/*.log
 # Java build artifacts
 trading-engine-simulator/target/
 trading-engine-simulator/allure-results/
+
+# Local-only prep & verification artifacts (never commit to the public repo)
+DEMO_GUIDE.md
+verify_suite.sh
+*.log
