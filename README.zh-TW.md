@@ -2,23 +2,23 @@
 
 [English](README.md) | **繁體中文**
 
-全週期（full-cycle）幣安 QA 作品集：一個可實際執行的支付 API，具備真實的交易型 ACID + 高併發下的 idempotency（冪等性）；一個搭配 MySQL 持久化的即時 BTC 交易引擎模擬器；以及一個即時 Next.js 儀表板。
+一套完整流程（full-cycle）的幣安 QA 作品集，包含三塊：一支可以實際跑起來的支付 API，具備真實的交易型 ACID 跟高併發下的 idempotency（冪等性）；一個搭配 MySQL 做持久化的即時 BTC 交易引擎模擬器；還有一個即時的 Next.js 儀表板。
 
 ![CI](https://github.com/benson-code/binance-qa-suite/actions/workflows/ci.yml/badge.svg)
 
 ### 為什麼有這個專案
 
-在支付閘道、電商平台，以及一間 Tier-1 銀行卡片支付整合上做 QA 的 10 年裡，真正致命的問題從來不在 happy path（正常流程）—— 而是**靜默的後端失敗（silent backend failures）**：扣款已 commit、但對應的 payment 資料列卻沒寫進去；高負載下的重試造成重複扣款；兩個服務之間的結算狀態彼此不一致。要抓到這些問題，往往得在事後動用 Oracle SQL、JDBC，以及 Linux log 鑑識。
+做 QA 這 10 年，我跑過支付閘道、電商平台，還有一間 Tier-1 銀行的卡片支付整合。真正會出大事的，從來都不是 happy path（正常流程），而是那種**悶不吭聲的後端失敗（silent backend failures）**：扣款明明已經 commit 了，對應的 payment 資料卻沒寫進去；高負載下重試一下就重複扣款；兩個服務之間的結算狀態對不起來。要抓到這些，常常得事後撈 Oracle SQL、JDBC，再配上 Linux log 一行一行追。
 
-這個 repo 把那份用代價換來的直覺，轉化成**資料庫層的可執行證明**：那些我在正式環境追過的 ACID rollback、exactly-once（剛好一次）idempotency、race condition（競態條件）情境，在這裡被重現為自動化測試 —— 一旦不變量（invariant）被破壞就會大聲失敗，讓 bug 在 CI 就被攔下，而不是出現在對帳報表裡。
+這個 repo 就是把那份用代價換來的直覺，變成**資料庫層跑得出來的證明**：那些我在正式環境追過的 ACID rollback、exactly-once（剛好一次）idempotency、race condition（競態條件）情境，這裡通通重現成自動化測試 —— 只要不變量（invariant）一被破壞，測試就會大聲喊出來，讓 bug 在 CI 階段就被擋下，而不是拖到對帳報表才爆出來。
 
 ### 重點亮點
 
-- **真服務、真資料庫、真 ACID** —— `JdbcPaymentRepository.createPayment` 在**同一個交易（transaction）**裡執行餘額扣款與 payment 寫入；`UNIQUE(idempotency_key)` 是併發的最後防線。一個競爭失敗的重試會 rollback —— **連帶把它的扣款也撤銷** —— 所以不論收到幾次重試，帳戶都剛好被扣一次（[`JdbcPaymentRepositoryTest`](payment-api/src/test/java/com/binance/payment/db/JdbcPaymentRepositoryTest.java)）。
-- **併發是「證明」出來的，不是「宣稱」的** —— 16 條執行緒用同一個 idempotency key 呼叫 `createPayment`；測試（[`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)）在**兩種** repository 實作上都驗證了剛好扣一次、且只有一個 `payment_id`。
-- **沒有 WireMock 的虛假演出** —— 每一個 API 與整合測試都是透過內嵌 HTTP server 打**真實的** `PaymentService`，而不是 mock 的替身，所以測試全綠就代表服務本身真的能動（[commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4) 展示了從 mock 遷移到真實服務的過程）。
-- **支付等級的輸入與存取控制** —— 幣別必須與帳戶相符（`422`）；金額精度被限制在 `DECIMAL(18,8)`（`400 INVALID_PRECISION`，不會靜默截斷）；支付端點在有設定時需要 `X-API-Key`（以常數時間比較，constant-time）（[`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)）。
-- **CI 強制的品質把關** —— CI 跑 98 個測試 · `main` 受 admin 強制的分支保護 · 僅能透過 PR · 兩個必過的檢查必須全綠 · 以 rebase-merge 保留 P1/P2/P3 的 commit 敘事。
+- **真服務、真資料庫、真 ACID** —— `JdbcPaymentRepository.createPayment` 把餘額扣款跟 payment 寫入放在**同一個交易（transaction）**裡；`UNIQUE(idempotency_key)` 則是併發時的最後一道防線。萬一某個重試在競爭中輸了，它會 rollback —— **連自己剛剛的扣款也一起撤掉** —— 所以不管收到幾次重試，帳戶就是剛好扣一次（[`JdbcPaymentRepositoryTest`](payment-api/src/test/java/com/binance/payment/db/JdbcPaymentRepositoryTest.java)）。
+- **併發是「測出來」的，不是嘴上講講** —— 16 條執行緒拿同一個 idempotency key 去打 `createPayment`；測試（[`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)）在**兩種** repository 實作上都驗證了：就是扣一次、就是只有一個 `payment_id`。
+- **不搞 WireMock 那套假把戲** —— 每一個 API 跟整合測試都是透過內嵌 HTTP server 去打**真正的** `PaymentService`，而不是 mock 出來的替身，所以測試全綠就代表服務本身真的跑得動（[commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4) 就是從 mock 遷移到真實服務的過程）。
+- **支付等級的輸入跟權限把關** —— 幣別一定要跟帳戶一致（`422`）；金額精度卡在 `DECIMAL(18,8)`（`400 INVALID_PRECISION`，不會偷偷截斷）；支付端點只要有設定，就一定要帶 `X-API-Key`（用常數時間比較，constant-time）（[`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)）。
+- **品質靠 CI 強制把關** —— CI 一次跑 98 個測試 · `main` 上了連 admin 都擋不掉的分支保護 · 只能走 PR · 兩個必過的檢查一定要全綠 · 用 rebase-merge 保留 P1/P2/P3 的 commit 故事線。
 
 ---
 
@@ -45,7 +45,7 @@ mvn test -pl trading-engine-simulator -Dgroups=db-validation
 
 ## 模組 1 — 支付 API QA 框架
 
-全週期自動化測試，涵蓋 API 測試、資料庫驗證、idempotency 驗證，以及 ACID 合規性。
+完整流程的自動化測試，從 API 測試、資料庫驗證、idempotency 驗證，一路涵蓋到 ACID 合規性。
 
 ### 測試覆蓋（Test Coverage）
 
@@ -59,25 +59,25 @@ mvn test -pl trading-engine-simulator -Dgroups=db-validation
 
 **總計：43 個測試案例**（16 個單元/API/idempotency 基線 + 5 個真實服務 E2E + 6 個 JDBC ACID 與負向路徑 + 3 個欄位長度與 HTTP 狀態碼準確性 + 4 個幣別相符 + 4 個金額精度 + 5 個 API-key 認證）
 
-> 所有 API、整合與併發測試，都是透過內嵌 HTTP server 打真實的
-> `PaymentService` —— 沒有 WireMock。
-> `JdbcPaymentRepository` 提供真實的交易型 ACID 與嚴格帳戶語意；
-> `PaymentRepository` 是抽換接縫（swap seam），執行期以
-> `PAYMENT_REPO=jdbc` 切換。
+> 所有 API、整合跟併發測試，都是透過內嵌 HTTP server 去打真正的
+> `PaymentService` —— 完全沒用 WireMock。
+> `JdbcPaymentRepository` 提供真實的交易型 ACID 跟嚴格帳戶語意；
+> `PaymentRepository` 是抽換用的接縫（swap seam），執行期用
+> `PAYMENT_REPO=jdbc` 一切就換過去。
 
 ### 關鍵測試情境
 
 **1. Idempotency — 防止重複付款**
-模擬客戶端重試：相同的 `idempotency_key` → `PaymentService` 在 `findByIdempotencyKey` 就短路，因此 `createPayment`（以及它的餘額扣款）剛好執行一次 → API 回放相同的 `payment_id`（回 `200`，而非第二個 `202`）。
+模擬客戶端重試：同一個 `idempotency_key` 進來 → `PaymentService` 在 `findByIdempotencyKey` 這關就先擋下，所以 `createPayment`（還有它的扣款）就只跑一次 → API 直接回放同一個 `payment_id`（回 `200`，不會再給第二個 `202`）。
 
 **2. ACID — 原子性與回滾**
-`JdbcPaymentRepository.createPayment` 在同一個交易裡執行扣款 + payment 寫入。餘額不足或 `idempotency_key` 重複 → `rollback()` 撤銷扣款 → 餘額不變、不留孤兒 payment 列。未知帳戶 → 被拒（404），不做任何持久化。於 DB 層驗證（`JdbcPaymentRepositoryTest`、`BalanceVerificationTest`）。
+`JdbcPaymentRepository.createPayment` 把扣款 + payment 寫入放在同一個交易裡。餘額不夠、或 `idempotency_key` 撞號 → `rollback()` 把扣款撤掉 → 餘額不變，也不會留下沒主人的 payment 資料。帳戶不存在 → 直接擋掉（404），什麼都不寫。這些都在 DB 層驗證過（`JdbcPaymentRepositoryTest`、`BalanceVerificationTest`）。
 
 **3. 非同步付款流程（HTTP 202）**
-`POST /payments` → `202 Accepted` + `job_id` → `GET /payments/{jobId}/status` → `SUCCESS`。這是非同步支付 API 的正確模式（而非錯誤的 201）。
+`POST /payments` → `202 Accepted` + `job_id` → `GET /payments/{jobId}/status` → `SUCCESS`。這才是非同步支付 API 該有的做法（而不是用錯的 201）。
 
 **4. 單元驗證**
-`PaymentService` 在碰到任何 repository 或網路之前，先驗證 amount > 0、idempotency key 非空白、userId 非空白。
+`PaymentService` 在碰到任何 repository 或網路之前，就先把 amount > 0、idempotency key 不能空白、userId 不能空白通通驗過一遍。
 
 ### 專案結構
 
@@ -176,7 +176,7 @@ CREATE TABLE payments (
 );
 ```
 
-`UNIQUE(idempotency_key)` 約束是併發的最後防線：在競爭下，失敗方的 INSERT 失敗、其交易 rollback、它先前做的扣款被撤銷，API 回傳勝出交易的 `payment_id`。
+`UNIQUE(idempotency_key)` 這個約束就是併發時的最後一道防線：發生競爭時，輸的那一方 INSERT 會失敗、交易跟著 rollback、它剛剛做的扣款被撤掉，API 最後回傳的是贏家那筆的 `payment_id`。
 
 ### 如何執行
 
@@ -209,7 +209,7 @@ open payment-api/target/site/allure-maven-plugin/index.html
 
 ## 模組 2 — 交易引擎模擬器
 
-BTC/USDT 交易引擎，以 55 個自動化測試、MySQL 持久化與即時 WebSocket 串流，展示 4 種 LeetCode 演算法模式。
+一個 BTC/USDT 交易引擎，用 55 個自動化測試、MySQL 持久化跟即時 WebSocket 串流，把 4 種 LeetCode 演算法模式實際跑給你看。
 
 ### 實作的 LeetCode 模式
 
@@ -371,7 +371,7 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 | CI 觸發 | `push` 到 `main`/`develop` · `pull_request` 到 `main` |
 | 必過檢查 | `Java Tests` · `UI Build Check (Next.js 15)` |
 
-> 這個作品集的歷史是以分階段重構（phased refactor）建立的。`git log --oneline main` 會顯示從空殼 payment-api 到真實 ACID 服務的四個步驟，依時間排序 —— commit log 本身就是一份設計文件。
+> 這個作品集是一步一步分階段重構（phased refactor）做出來的。`git log --oneline main` 會照時間順序，把從空殼 payment-api 到真實 ACID 服務的四個步驟攤開給你看 —— 這份 commit log 本身就是一份設計文件。
 
 ---
 
