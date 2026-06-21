@@ -1,14 +1,22 @@
 # Binance QA Suite
 
+**English** | [繁體中文](README.zh-TW.md)
+
 Full-cycle Binance QA portfolio: a runnable Payment API with real transactional ACID + idempotency under concurrency, a live BTC trading engine simulator with MySQL persistence, and a real-time Next.js dashboard.
 
 ![CI](https://github.com/benson-code/binance-qa-suite/actions/workflows/ci.yml/badge.svg)
+
+### Why this project exists
+
+Across 10 years of QA on payment gateways, e-commerce platforms, and a Tier-1 bank's card-payment integration, the failures that hurt most were never on the happy path — they were **silent backend failures**: a debit that committed while its payment row didn't, a retry that double-charged under load, a settlement state that disagreed between two services. Catching those took Oracle SQL, JDBC, and Linux log forensics *after* the fact.
+
+This repo turns that hard-won instinct into **executable proof at the DB layer**: the same ACID-rollback, exactly-once idempotency, and race-condition scenarios I chased in production are reproduced here as automated tests that fail loudly when the invariant breaks — so the bug is caught in CI, not in a reconciliation report.
 
 ### Highlights
 
 - **Real service, real DB, real ACID** — `JdbcPaymentRepository.createPayment` runs the balance debit and the payment insert in **one transaction**; `UNIQUE(idempotency_key)` is the concurrency backstop. A retry that races and loses the constraint rolls back — **which undoes its debit** — so the account is debited exactly once regardless of how many retries arrive ([`JdbcPaymentRepositoryTest`](payment-api/src/test/java/com/binance/payment/db/JdbcPaymentRepositoryTest.java)).
 - **Concurrency proven, not asserted** — 16 threads call `createPayment` with the same idempotency key; the test ([`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)) asserts exactly-one debit and one `payment_id` on **both** repository implementations.
-- **No WireMock theatre** — every API and integration test now exercises the real `PaymentService` through an embedded HTTP server. The three pre-existing WireMock tests were rewritten to hit the real service ([commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4)).
+- **No WireMock theatre** — every API and integration test exercises the real `PaymentService` through an embedded HTTP server, not a mocked stand-in, so a green suite means the actual service behaves ([commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4) shows the mock-to-real migration).
 - **Payment-grade input & access control** — currency must match the account (`422`), amount precision is bounded to `DECIMAL(18,8)` (`400 INVALID_PRECISION`, no silent truncation), and the payment endpoints require an `X-API-Key` (constant-time compared) when configured ([`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)).
 - **CI-enforced quality** — 98 tests in CI · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
 
@@ -49,7 +57,7 @@ Full-cycle automated testing covering API testing, database verification, idempo
 | Integration / E2E | Full flow + async settlement against the real service | RestAssured, embedded JDK HTTP server |
 | Concurrency | N-thread idempotency race → exactly-once debit | ExecutorService, both repos |
 
-**Total: 43 test cases** (16 original + 5 real-service E2E + 6 P3: JDBC ACID/negative + concurrency + 3 D2: length validation & HTTP-code accuracy + 4 D1/A4: currency match + 4 D3: amount precision + 5 A2: API-key auth)
+**Total: 43 test cases** (16 unit/API/idempotency baseline + 5 real-service E2E + 6 JDBC ACID & negative-path + 3 field-length & HTTP-code accuracy + 4 currency-match + 4 amount-precision + 5 API-key auth)
 
 > All API, integration and concurrency tests exercise the real
 > `PaymentService` through an embedded HTTP server — no WireMock.
