@@ -28,6 +28,24 @@ COLLECTION_TYPES='List|ArrayList|LinkedList|CopyOnWriteArrayList|Map|HashMap|Lin
 # 已具備淘汰機制的訊號（出現在欄位所屬的類別中即視為有界）
 EVICTION_SIGNALS='removeEldestEntry|CacheBuilder|Caffeine\.newBuilder|maximumSize|expireAfter|EvictingQueue|CircularFifoQueue'
 
+# 印出附著於指定行的註解區塊（該行本身 + 其上方連續的註解／空行）。
+# 遇到第一行非註解、非空白的程式碼即停止，因此不會誤讀到別的欄位的註解。
+attached_comment_block() {
+    awk -v target="$2" '
+        NR > target { exit }
+        { lines[NR] = $0 }
+        END {
+            print lines[target]
+            for (i = target - 1; i >= 1; i--) {
+                s = lines[i]
+                gsub(/^[ \t]+|[ \t]+$/, "", s)
+                if (s == "" || s ~ /^(\/\/|\/\*|\*)/) { print lines[i] }
+                else { break }
+            }
+        }
+    ' "$1"
+}
+
 targets=("$@")
 if [ ${#targets[@]} -eq 0 ]; then
     mapfile -t targets < <(find . -type d -path '*/src/main/java' -not -path './node_modules/*' 2>/dev/null)
@@ -60,9 +78,10 @@ while IFS= read -r file; do
             continue
         fi
 
-        # 檢查前 5 行內是否有 BOUNDED-BY 聲明
-        start=$((lineno > 5 ? lineno - 5 : 1))
-        if sed -n "${start},${lineno}p" "$file" | grep -q "BOUNDED-BY:"; then
+        # 往回掃描「附著於此欄位的註解區塊」——從欄位上一行開始，一路收集空行與註解行，
+        # 遇到第一行程式碼即停止。這樣長 javadoc 也能被完整讀到，
+        # 而別的欄位的註解不會被誤算給這個欄位。
+        if grep -q "BOUNDED-BY:" <(attached_comment_block "$file" "$lineno"); then
             declared=$((declared + 1))
             continue
         fi

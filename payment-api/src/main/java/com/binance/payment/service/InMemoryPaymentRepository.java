@@ -4,6 +4,8 @@ import com.binance.payment.model.PaymentRequest;
 import com.binance.payment.model.PaymentResponse;
 
 import java.math.BigDecimal;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -34,9 +36,43 @@ public class InMemoryPaymentRepository implements PaymentRepository {
     /** Currency auto-provisioned for any user not explicitly seeded. */
     public static final String DEFAULT_CURRENCY = "USDT";
 
+    /** Idempotency keys retained. Beyond this the oldest is dropped — see the field javadoc. */
+    public static final int IDEMPOTENCY_RETENTION = 100_000;
+
+    /**
+     * idempotencyKey → the response that key produced.
+     *
+     * <p>BOUNDED-BY: {@link #trackAndEvictKey(String)} drops the oldest key once
+     * {@link #IDEMPOTENCY_RETENTION} is exceeded.
+     *
+     * <p><b>This bound is a deliberate trade-off, not a free win.</b> A retry of a key that
+     * has aged out is treated as a new payment and charges the account again. Real idempotency
+     * stores bound by time (a TTL of hours to days) rather than by count, because what matters
+     * is the retry window, not the entry count. A count bound is used here because this
+     * implementation holds no clock-driven eviction and is the demo path only —
+     * {@link com.binance.payment.service.JdbcPaymentRepository} is the durable one
+     * ({@code Main} selects it with {@code repoMode=jdbc}).
+     *
+     * <p>At 100k keys the window covers far more than any realistic client retry burst, so the
+     * exposure is theoretical here. It would not be in production, where this should become a
+     * TTL-indexed store.
+     */
     private final ConcurrentHashMap<String, PaymentResponse> byIdempotencyKey = new ConcurrentHashMap<>();
+
+    // BOUNDED-BY: one key per entry in `byIdempotencyKey`, so it shares that bound;
+    // guarded by `keyEvictionLock`
+    private final Deque<String> keyInsertionOrder = new ArrayDeque<>();
+
+    private final Object keyEvictionLock = new Object();
+
+    // BOUNDED-BY: account state, one entry per user ever seen. Deliberately NOT evicted —
+    // dropping an entry would silently reset a balance to DEFAULT_BALANCE, i.e. invent money.
+    // Growth is bounded by account count, which is a business quantity, not by request volume.
     private final ConcurrentHashMap<String, BigDecimal>      balances         = new ConcurrentHashMap<>();
+
+    // BOUNDED-BY: account state, paired 1:1 with `balances`. Not evicted, for the same reason.
     private final ConcurrentHashMap<String, String>          currencies       = new ConcurrentHashMap<>();
+
     private final AtomicLong sequence = new AtomicLong(1);
 
     /** Pre-fund an account in the default currency (USDT). */
@@ -67,7 +103,9 @@ public class InMemoryPaymentRepository implements PaymentRepository {
     public PaymentResponse createPayment(PaymentRequest request) {
         // computeIfAbsent makes the create body run exactly once per idempotency
         // key, even when concurrent retries race here simultaneously.
-        return byIdempotencyKey.computeIfAbsent(request.getIdempotencyKey(), key -> {
+        boolean[] created = { false };
+        PaymentResponse response = byIdempotencyKey.computeIfAbsent(request.getIdempotencyKey(), key -> {
+            created[0] = true;
             String acctCurrency = getCurrency(request.getUserId());
             if (!acctCurrency.equalsIgnoreCase(request.getCurrency())) {
                 throw new CurrencyMismatchException(
@@ -88,6 +126,27 @@ public class InMemoryPaymentRepository implements PaymentRepository {
                     .message("Payment accepted. Use job_id to poll status.")
                     .build();
         });
+        // Only genuinely new keys are tracked, so the deque holds exactly one entry per
+        // retained response and cannot outgrow the map.
+        if (created[0]) {
+            trackAndEvictKey(request.getIdempotencyKey());
+        }
+        return response;
+    }
+
+    /** Records a newly stored key and drops the oldest once retention is exceeded. */
+    private void trackAndEvictKey(String idempotencyKey) {
+        synchronized (keyEvictionLock) {
+            keyInsertionOrder.addLast(idempotencyKey);
+            while (keyInsertionOrder.size() > IDEMPOTENCY_RETENTION) {
+                byIdempotencyKey.remove(keyInsertionOrder.removeFirst());
+            }
+        }
+    }
+
+    /** Idempotency keys currently retained. Never exceeds {@link #IDEMPOTENCY_RETENTION}. */
+    public int retainedIdempotencyKeyCount() {
+        synchronized (keyEvictionLock) { return keyInsertionOrder.size(); }
     }
 
     @Override

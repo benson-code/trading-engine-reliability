@@ -22,6 +22,12 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      # Guards the defect class behind the 2026-07 GC death spiral: a collection field on a
+      # long-lived object with no eviction and no stated reason it cannot grow.
+      # See docs/checklists/resource-safety-zh-TW.md
+      - name: Bounded-collections check
+        run: tools/check-bounded-collections.sh
+
       - name: Run all Java tests (both modules)
         run: mvn test --no-transfer-progress
 

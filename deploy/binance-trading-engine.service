@@ -1,0 +1,77 @@
+#
+# Hardened systemd unit for trading-engine-simulator.
+#
+# The unit that was actually running during the 2026-07 incident set no JVM flags at all:
+#
+#   ExecStart=/usr/bin/java -jar .../trading-engine-simulator-1.0.0.jar
+#   Restart=on-failure
+#
+# Two consequences, both visible in the evidence set
+# (docs/incident-2026-07-14-gc-death-spiral/evidence/binance-trading-engine.service):
+#
+#   1. No -Xmx, so the JVM took the default 1/4 of the 11 GiB host = 2.91 GiB. The leak
+#      needed 7.6 days to reach that ceiling, which is 7.6 days of silent degradation.
+#
+#   2. No -XX:+ExitOnOutOfMemoryError, so the process never exited. Restart=on-failure
+#      keys off the exit code, and there was no exit code — systemd reported
+#      `active (running)` for the full 13 days while the API answered nothing.
+#
+# Installation (do NOT apply to the preserved incident host — see
+# docs/incident-2026-07-14-gc-death-spiral/evidence/PRESERVE_SCENE.md; PID 26810 must not
+# be restarted):
+#
+#   sudo install -m 644 deploy/binance-trading-engine.service \
+#        /etc/systemd/system/binance-trading-engine.service
+#   sudo mkdir -p /var/log/binance-trading-engine
+#   sudo chown ubuntu:ubuntu /var/log/binance-trading-engine
+#   sudo systemctl daemon-reload
+#   sudo systemctl restart binance-trading-engine
+#
+[Unit]
+Description=Binance Trading Engine Simulator (Port 8092/8093)
+After=network.target mysql.service
+Wants=mysql.service
+
+# Bounded restart loop: if the leak returns, the service stops instead of restarting
+# forever, which makes the failure visible rather than absorbing it.
+# These belong in [Unit], not [Service] — systemd silently ignores them if misplaced.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/qa/trading-engine-simulator
+
+# -Xmx1g
+#     Cap the heap explicitly rather than inheriting 1/4 of host RAM. A tighter ceiling is
+#     a feature: a regression surfaces in hours instead of a week.
+#
+# -XX:+ExitOnOutOfMemoryError
+#     The single most valuable flag here. Turns "silently spins at 100% CPU for 13 days"
+#     into "exits, gets restarted, alerts". Without it Restart=on-failure is inert, because
+#     a thrashing JVM never produces an exit code.
+#
+# -XX:+HeapDumpOnOutOfMemoryError / -XX:HeapDumpPath
+#     Capture the evidence at the moment it exists. During the incident jmap and jstack
+#     could not attach — the JVM never reached a safepoint — so the heap histogram was
+#     lost. An automatic dump would have preserved it.
+#
+# -Xlog:gc*
+#     Makes the degradation observable in advance instead of only in hindsight.
+ExecStart=/usr/bin/java \
+  -Xmx1g \
+  -XX:+ExitOnOutOfMemoryError \
+  -XX:+HeapDumpOnOutOfMemoryError \
+  -XX:HeapDumpPath=/var/log/binance-trading-engine/ \
+  -Xlog:gc*:file=/var/log/binance-trading-engine/gc.log:time,uptime:filecount=5,filesize=20M \
+  -jar /home/ubuntu/qa/trading-engine-simulator/target/trading-engine-simulator-1.0.0.jar
+
+Restart=on-failure
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
