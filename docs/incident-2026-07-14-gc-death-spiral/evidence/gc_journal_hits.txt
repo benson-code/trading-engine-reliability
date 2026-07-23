@@ -1,0 +1,100 @@
+25:Jul 08 22:57:49 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "idle-timeout-task"
+26:Jul 08 22:58:49 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "mysql-cj-abandoned-connection-cleanup"
+27:Jul 08 22:59:23 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "SELL-THREAD"
+28:Jul 08 23:00:14 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "HTTP-Dispatcher"
+29:Jul 09 17:50:02 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+30:Jul 09 17:50:02 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+31:Jul 09 17:51:05 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+32:Jul 09 17:51:05 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+198:Jul 09 17:51:14 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+276:Jul 09 17:51:14 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68799535.39ms elapsed=698706.32s tid=0x0000e51b900060b0 nid=26842 runnable
+283:Jul 09 17:51:14 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68792401.05ms elapsed=698706.83s tid=0x0000e51bd406c5d0 nid=26820 runnable
+285:Jul 09 17:51:40 orion-dev java[26810]: Heap
+286:Jul 09 17:51:40 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+455:Jul 09 17:51:40 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+534:Jul 09 17:51:40 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68824963.57ms elapsed=698732.63s tid=0x0000e51b900060b0 nid=26842 runnable
+541:Jul 09 17:51:40 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68817758.78ms elapsed=698733.14s tid=0x0000e51bd406c5d0 nid=26820 runnable
+543:Jul 09 17:52:06 orion-dev java[26810]: Heap
+544:Jul 09 17:52:06 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+713:Jul 09 17:52:06 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+791:Jul 09 17:52:06 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68850427.16ms elapsed=698758.53s tid=0x0000e51b900060b0 nid=26842 runnable
+798:Jul 09 17:52:06 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68843414.15ms elapsed=698759.04s tid=0x0000e51bd406c5d0 nid=26820 runnable
+800:Jul 09 17:52:24 orion-dev java[26810]: Heap
+801:Jul 09 17:52:24 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+971:Jul 09 17:52:24 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+1049:Jul 09 17:52:24 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68867564.46ms elapsed=698776.03s tid=0x0000e51b900060b0 nid=26842 runnable
+1056:Jul 09 17:52:24 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68860314.87ms elapsed=698776.54s tid=0x0000e51bd406c5d0 nid=26820 runnable
+1058:Jul 09 17:53:08 orion-dev java[26810]: Heap
+1059:Jul 09 17:53:08 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+1228:Jul 09 17:53:08 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+1307:Jul 09 17:53:08 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68910115.75ms elapsed=698820.57s tid=0x0000e51b900060b0 nid=26842 runnable
+1314:Jul 09 17:53:08 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68902798.02ms elapsed=698821.08s tid=0x0000e51bd406c5d0 nid=26820 runnable
+1316:Jul 09 17:53:35 orion-dev java[26810]: Heap
+1317:Jul 09 17:53:35 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+1485:Jul 09 17:53:35 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+1564:Jul 09 17:53:35 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68935657.45ms elapsed=698846.68s tid=0x0000e51b900060b0 nid=26842 runnable
+1571:Jul 09 17:53:35 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68928126.77ms elapsed=698847.19s tid=0x0000e51bd406c5d0 nid=26820 runnable
+1573:Jul 09 17:53:53 orion-dev java[26810]: Heap
+1574:Jul 09 17:53:53 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+1743:Jul 09 17:53:53 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+1821:Jul 09 17:53:53 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68953038.63ms elapsed=698864.96s tid=0x0000e51b900060b0 nid=26842 runnable
+1828:Jul 09 17:53:53 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68944809.36ms elapsed=698865.47s tid=0x0000e51bd406c5d0 nid=26820 runnable
+1830:Jul 09 17:54:11 orion-dev java[26810]: Heap
+1831:Jul 09 17:54:11 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+2000:Jul 09 17:54:11 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+2078:Jul 09 17:54:11 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68970204.08ms elapsed=698883.07s tid=0x0000e51b900060b0 nid=26842 runnable
+2085:Jul 09 17:54:11 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68961746.46ms elapsed=698883.58s tid=0x0000e51bd406c5d0 nid=26820 runnable
+2087:Jul 09 17:54:32 orion-dev java[26810]: Heap
+2088:Jul 09 17:54:32 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+2257:Jul 09 17:54:32 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+2335:Jul 09 17:54:32 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68988301.02ms elapsed=698903.81s tid=0x0000e51b900060b0 nid=26842 runnable
+2342:Jul 09 17:54:32 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68979238.95ms elapsed=698904.32s tid=0x0000e51bd406c5d0 nid=26820 runnable
+2344:Jul 09 17:55:03 orion-dev java[26810]: Heap
+2345:Jul 09 17:55:03 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+2514:Jul 09 17:55:03 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+2592:Jul 09 17:55:03 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69015279.74ms elapsed=698935.62s tid=0x0000e51b900060b0 nid=26842 runnable
+2599:Jul 09 17:55:03 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69005322.39ms elapsed=698936.13s tid=0x0000e51bd406c5d0 nid=26820 runnable
+2601:Jul 09 17:55:56 orion-dev java[26810]: Heap
+2602:Jul 09 17:55:56 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+2771:Jul 09 17:56:21 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+2849:Jul 09 17:56:21 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69092132.88ms elapsed=699013.45s tid=0x0000e51b900060b0 nid=26842 runnable
+2856:Jul 09 17:56:21 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69080947.39ms elapsed=699013.96s tid=0x0000e51bd406c5d0 nid=26820 runnable
+2858:Jul 09 17:56:47 orion-dev java[26810]: Heap
+2859:Jul 09 17:56:47 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+3028:Jul 09 17:57:04 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+3106:Jul 09 17:57:04 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69134454.03ms elapsed=699055.95s tid=0x0000e51b900060b0 nid=26842 runnable
+3113:Jul 09 17:57:04 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69123117.20ms elapsed=699056.46s tid=0x0000e51bd406c5d0 nid=26820 runnable
+3115:Jul 09 17:57:38 orion-dev java[26810]: Heap
+3116:Jul 09 17:57:38 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+3284:Jul 09 17:57:46 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+3363:Jul 09 17:57:46 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69176720.91ms elapsed=699098.43s tid=0x0000e51b900060b0 nid=26842 runnable
+3370:Jul 09 17:57:46 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69165301.28ms elapsed=699098.93s tid=0x0000e51bd406c5d0 nid=26820 runnable
+3372:Jul 09 17:58:12 orion-dev java[26810]: Heap
+3373:Jul 09 17:58:12 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+3541:Jul 09 17:58:12 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+3620:Jul 09 17:58:12 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69202037.35ms elapsed=699123.89s tid=0x0000e51b900060b0 nid=26842 runnable
+3627:Jul 09 17:58:12 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69190628.01ms elapsed=699124.40s tid=0x0000e51bd406c5d0 nid=26820 runnable
+3629:Jul 09 17:58:37 orion-dev java[26810]: Heap
+3630:Jul 09 17:58:37 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+3798:Jul 09 17:58:37 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+3877:Jul 09 17:58:37 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69227431.55ms elapsed=699149.43s tid=0x0000e51b900060b0 nid=26842 runnable
+3884:Jul 09 17:58:37 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69215941.91ms elapsed=699149.94s tid=0x0000e51bd406c5d0 nid=26820 runnable
+3886:Jul 09 17:58:54 orion-dev java[26810]: Heap
+3887:Jul 09 17:58:54 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+4056:Jul 09 17:58:54 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+4134:Jul 09 17:58:54 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69244344.02ms elapsed=699166.45s tid=0x0000e51b900060b0 nid=26842 runnable
+4141:Jul 09 17:58:54 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69232865.97ms elapsed=699166.96s tid=0x0000e51bd406c5d0 nid=26820 runnable
+4143:Jul 09 17:59:11 orion-dev java[26810]: Heap
+4144:Jul 09 17:59:11 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+4148:Jul 13 15:31:08 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+4149:Jul 13 15:31:08 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+4314:Jul 13 15:31:08 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+4392:Jul 13 15:31:08 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403244013.80ms elapsed=1035900.48s tid=0x0000e51b900060b0 nid=26842 runnable
+4399:Jul 13 15:31:08 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403234399.45ms elapsed=1035900.99s tid=0x0000e51bd406c5d0 nid=26820 runnable
+4401:Jul 13 15:31:34 orion-dev java[26810]: Heap
+4402:Jul 13 15:31:34 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+4571:Jul 13 15:31:34 orion-dev java[26810]:         at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireOnOOME(java.base@21.0.11/AbstractQueuedSynchronizer.java:808)
+4650:Jul 13 15:31:34 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403269495.92ms elapsed=1035926.38s tid=0x0000e51b900060b0 nid=26842 runnable
+4657:Jul 13 15:31:34 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403259799.16ms elapsed=1035926.89s tid=0x0000e51bd406c5d0 nid=26820 runnable
+4659:Jul 13 15:32:10 orion-dev java[26810]: Heap
+4660:Jul 13 15:32:10 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)

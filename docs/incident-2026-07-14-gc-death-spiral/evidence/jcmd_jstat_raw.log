@@ -1,0 +1,53 @@
+=== jcmd VM.flags ===
+26810:
+com.sun.tools.attach.AttachNotSupportedException: Unable to open socket file /proc/26810/root/tmp/.java_pid26810: target process 26810 doesn't respond within 10500ms or HotSpot VM not loaded
+	at jdk.attach/sun.tools.attach.VirtualMachineImpl.<init>(VirtualMachineImpl.java:113)
+	at jdk.attach/sun.tools.attach.AttachProviderImpl.attachVirtualMachine(AttachProviderImpl.java:58)
+	at jdk.attach/com.sun.tools.attach.VirtualMachine.attach(VirtualMachine.java:207)
+	at jdk.jcmd/sun.tools.jcmd.JCmd.executeCommandForPid(JCmd.java:113)
+	at jdk.jcmd/sun.tools.jcmd.JCmd.main(JCmd.java:97)
+=== jcmd VM.version ===
+26810:
+com.sun.tools.attach.AttachNotSupportedException: Unable to open socket file /proc/26810/root/tmp/.java_pid26810: target process 26810 doesn't respond within 10500ms or HotSpot VM not loaded
+	at jdk.attach/sun.tools.attach.VirtualMachineImpl.<init>(VirtualMachineImpl.java:113)
+	at jdk.attach/sun.tools.attach.AttachProviderImpl.attachVirtualMachine(AttachProviderImpl.java:58)
+	at jdk.attach/com.sun.tools.attach.VirtualMachine.attach(VirtualMachine.java:207)
+	at jdk.jcmd/sun.tools.jcmd.JCmd.executeCommandForPid(JCmd.java:113)
+	at jdk.jcmd/sun.tools.jcmd.JCmd.main(JCmd.java:97)
+=== jcmd GC.heap_info ===
+26810:
+com.sun.tools.attach.AttachNotSupportedException: Unable to open socket file /proc/26810/root/tmp/.java_pid26810: target process 26810 doesn't respond within 10500ms or HotSpot VM not loaded
+	at jdk.attach/sun.tools.attach.VirtualMachineImpl.<init>(VirtualMachineImpl.java:113)
+	at jdk.attach/sun.tools.attach.AttachProviderImpl.attachVirtualMachine(AttachProviderImpl.java:58)
+	at jdk.attach/com.sun.tools.attach.VirtualMachine.attach(VirtualMachine.java:207)
+	at jdk.jcmd/sun.tools.jcmd.JCmd.executeCommandForPid(JCmd.java:113)
+	at jdk.jcmd/sun.tools.jcmd.JCmd.main(JCmd.java:97)
+=== jcmd GC.class_histogram (top 40) ===
+26810:
+com.sun.tools.attach.AttachNotSupportedException: Unable to open socket file /proc/26810/root/tmp/.java_pid26810: target process 26810 doesn't respond within 10500ms or HotSpot VM not loaded
+	at jdk.attach/sun.tools.attach.VirtualMachineImpl.<init>(VirtualMachineImpl.java:113)
+	at jdk.attach/sun.tools.attach.AttachProviderImpl.attachVirtualMachine(AttachProviderImpl.java:58)
+	at jdk.attach/com.sun.tools.attach.VirtualMachine.attach(VirtualMachine.java:207)
+	at jdk.jcmd/sun.tools.jcmd.JCmd.executeCommandForPid(JCmd.java:113)
+	at jdk.jcmd/sun.tools.jcmd.JCmd.main(JCmd.java:97)
+=== jstat -gcutil samples ===
+  S0     S1     E      O      M     CCS    YGC     YGCT     FGC    FGCT     CGC    CGCT       GCT   
+     -      -   0.00 100.00  98.15  91.76  58027    71.847 114876 491204.633   242     0.342 491276.821
+     -      -   0.00 100.00  98.15  91.76  58027    71.847 114876 491204.633   242     0.342 491276.821
+     -      -   0.00 100.00  98.15  91.76  58027    71.847 114876 491204.633   242     0.342 491276.821
+     -      -   0.00 100.00  98.15  91.76  58027    71.847 114876 491204.633   242     0.342 491276.821
+     -      -   0.00 100.00  98.15  91.76  58027    71.847 114877 491208.589   242     0.342 491280.777
+     -      -   0.00 100.00  98.15  91.76  58027    71.847 114877 491208.589   242     0.342 491280.777
+     -      -   0.00 100.00  98.15  91.76  58027    71.847 114877 491208.589   242     0.342 491280.777
+     -      -   0.00 100.00  98.15  91.76  58027    71.847 114877 491208.589   242     0.342 491280.777
+     -      -   0.00 100.00  98.15  91.76  58027    71.847 114877 491208.589   242     0.342 491280.777
+     -      -   0.00 100.00  98.15  91.76  58028    71.850 114878 491213.684   242     0.342 491285.875
+=== jstat -gc samples ===
+    S0C         S1C         S0U         S1U          EC           EU           OC           OU          MC         MU       CCSC      CCSU     YGC     YGCT     FGC    FGCT     CGC    CGCT       GCT   
+        0.0         0.0         0.0         0.0       2048.0          0.0    3051520.0    3051505.1    13568.0    13317.5    1408.0    1291.9  58028    71.850 114878 491213.684   242     0.342 491285.875
+        0.0         0.0         0.0         0.0       2048.0          0.0    3051520.0    3051505.1    13568.0    13317.5    1408.0    1291.9  58028    71.850 114878 491213.684   242     0.342 491285.875
+        0.0         0.0         0.0         0.0       2048.0          0.0    3051520.0    3051505.1    13568.0    13317.5    1408.0    1291.9  58028    71.850 114878 491213.684   242     0.342 491285.875
+        0.0         0.0         0.0         0.0       2048.0          0.0    3051520.0    3051505.1    13568.0    13317.5    1408.0    1291.9  58028    71.850 114879 491217.643   242     0.342 491289.835
+        0.0         0.0         0.0         0.0       2048.0          0.0    3051520.0    3051505.1    13568.0    13317.5    1408.0    1291.9  58028    71.850 114879 491217.643   242     0.342 491289.835
+=== jstack thread dump ===
+26810: Unable to open socket file /proc/26810/root/tmp/.java_pid26810: target process 26810 doesn't respond within 10500ms or HotSpot VM not loaded

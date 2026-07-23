@@ -1,0 +1,9 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+order_count	min_ts_utc	max_ts_utc	span_days	orders_per_sec
+11358422	2026-07-01 08:27:34.2800	2026-07-08 22:56:24.1040	7.60335444	17.2902
+type	c
+BUY	5679212
+SELL	5679210
+is_duplicate	c
+0	10817957
+1	540465

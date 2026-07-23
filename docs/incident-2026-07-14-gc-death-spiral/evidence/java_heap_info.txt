@@ -1,0 +1,8 @@
+=== jcmd GC.heap_info ===
+26810:
+com.sun.tools.attach.AttachNotSupportedException: Unable to open socket file /proc/26810/root/tmp/.java_pid26810: target process 26810 doesn't respond within 10500ms or HotSpot VM not loaded
+	at jdk.attach/sun.tools.attach.VirtualMachineImpl.<init>(VirtualMachineImpl.java:113)
+	at jdk.attach/sun.tools.attach.AttachProviderImpl.attachVirtualMachine(AttachProviderImpl.java:58)
+	at jdk.attach/com.sun.tools.attach.VirtualMachine.attach(VirtualMachine.java:207)
+	at jdk.jcmd/sun.tools.jcmd.JCmd.executeCommandForPid(JCmd.java:113)
+	at jdk.jcmd/sun.tools.jcmd.JCmd.main(JCmd.java:97)

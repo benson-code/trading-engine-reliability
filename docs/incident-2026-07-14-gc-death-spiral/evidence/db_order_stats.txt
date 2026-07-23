@@ -1,0 +1,2 @@
+order_count	min_ts_utc	max_ts_utc	span_days	orders_per_sec
+11358422	2026-07-01 08:27:34.2800	2026-07-08 22:56:24.1040	7.603	17.290

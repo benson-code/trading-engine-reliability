@@ -1,0 +1,4 @@
+  S0     S1     E      O      M     CCS    YGC     YGCT     FGC    FGCT     CGC    CGCT       GCT    LGCC                 GCC                 
+     -      -   0.00 100.00  98.15  91.76 126408   128.614 251639 1076481.623   242     0.342 1076610.579 G1 Evacuation Pause  G1 Compaction Pause 
+     -      -   0.00 100.00  98.15  91.76 126408   128.614 251639 1076481.623   242     0.342 1076610.579 G1 Evacuation Pause  G1 Compaction Pause 
+     -      -   0.00 100.00  98.15  91.76 126408   128.614 251639 1076481.623   242     0.342 1076610.579 G1 Evacuation Pause  G1 Compaction Pause 

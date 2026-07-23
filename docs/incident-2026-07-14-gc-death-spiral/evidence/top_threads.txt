@@ -1,0 +1,2 @@
+    TID %CPU %MEM STAT WCHAN                COMMAND
+  26810 87.1 26.3 Ssl  futex_do_wait        java
