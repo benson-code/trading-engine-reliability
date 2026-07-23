@@ -88,15 +88,15 @@ private final List<Order> allOrders = new ArrayList<>();
 
 ```
 已有淘汰機制    : 1
-已 BOUNDED-BY 聲明: 0
-未聲明（違規）  : 8
+已 BOUNDED-BY 聲明: 4
+未聲明（違規）  : 5
 ```
 
 | # | 位置 | 實際狀態 | 判定 |
 |---|------|---------|------|
-| 1 | `OrderBook.java:19` `orders` | 只有 `putIfAbsent`，無移除 | 🔴 **真缺陷**（本次事故根因） |
-| 2 | `OrderBook.java:20` `orderIdFrequency` | 只有 `merge`，無移除 | 🔴 **真缺陷**（本次事故根因） |
-| 3 | `OrderBook.java:21` `allOrders` | 只有 `add`，無移除 | 🔴 **真缺陷**（本次事故根因） |
+| 1 | `OrderBook` `orders` | ✅ 已有界化 + BOUNDED-BY 聲明 | 🟢 **已修復 2026-07-23** |
+| 2 | `OrderBook` `orderIdFrequency` | ✅ 與 `orders` 同步淘汰 | 🟢 **已修復 2026-07-23** |
+| 3 | `OrderBook` `allOrders` → `recentOrders` | ✅ 滾動視窗 + `AtomicLong` 全時計數器 | 🟢 **已修復 2026-07-23** |
 | 4 | `PaymentApiServer.java:62` `jobs` | 只有 `put` / `computeIfAbsent`，**無 `remove`** | 🔴 **同類真缺陷（新發現）** |
 | 5 | `InMemoryPaymentRepository.java:37` `byIdempotencyKey` | 只有 `computeIfAbsent`，**無 `remove`** | 🔴 **同類真缺陷（新發現）** |
 | 6 | `InMemoryPaymentRepository.java:38` `balances` | `put` / `compute`，無移除 | 🟡 由帳戶數界定，需 BOUNDED-BY |
@@ -159,7 +159,22 @@ void retainedSetMustNotGrowLinearly() throws Exception {
 | ⚠️ `System.gc()` 只是建議 | JVM 可忽略。嚴謹作法：以 `-XX:+UseSerialGC` 執行此測試，或透過 `ManagementFactory` 的 GC notification 確認 Full GC 確實發生 |
 | 控制執行時間 | 目標 < 90 秒；超過則用 `@Tag("endurance")` 移至 nightly build |
 
-**狀態：⬜ 尚未實作**（`grep -rliE "endurance|soak|longevity"` 於本 repo 回傳空）
+**狀態：✅ 已實作**（`trading-engine-simulator/src/test/java/com/binance/trading/endurance/OrderBookRetentionTest.java`）
+
+3 個測試、約 3 秒。**並已用對照實驗證明它抓得到缺陷**——把 retention 設為
+`Integer.MAX_VALUE` 重現無界行為時：
+
+| 指標 | 有界 | 無界（事故行為） |
+|------|------|-----------------|
+| 保留筆數 | 1,000 → 1,000 | **1,000 → 100,000** |
+| GC 後堆占用 | 幾乎持平 | **29 MB → 70 MB（+139%）** |
+
+兩個斷言都正確地失敗。
+
+> 💡 **這一步不能省。** 一個在有缺陷的程式碼上也會通過的測試，是零價值的。
+> 撰寫本測試時第一次的對照實驗用了 `while (false)` 停用淘汰，結果那是 Java 編譯錯誤
+> （unreachable statement），build 失敗、讀到的是上一輪的舊報告——差點回報假的「通過」。
+> **驗證測試有效性時，務必確認建置真的成功了。**
 
 ---
 
@@ -295,9 +310,10 @@ L1 就是照這個原則設計的——不宣告就過不了 CI。
 
 ## 待辦
 
-- [ ] 處理 L1.2 表格中的 8 個違規項（3 個已知 + 2 個新發現的真缺陷 + 3 個補聲明）
+- [x] ~~處理 `OrderBook` 的 3 個違規項~~ ✅ 2026-07-23
+- [ ] 處理其餘 5 個違規項（`PaymentApiServer.jobs`、`InMemoryPaymentRepository` 三個、`TradingWebSocketServer.clients`）
 - [ ] 處理完後將 `tools/check-bounded-collections.sh` 接進 CI（見 1.3）
-- [ ] 實作 endurance test（見 1.4）
+- [x] ~~實作 endurance test~~ ✅ 2026-07-23
 - [ ] 為所有常駐 JVM 服務補上 L3.1 的啟動參數
 - [ ] 設定 L3.2 的業務進度告警
 

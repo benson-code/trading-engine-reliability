@@ -71,9 +71,12 @@ private final List<Order>          allOrders         = Collections.synchronizedL
 
 ## ⚠️ 狀態聲明
 
-- **修復尚未實作。** `OrderBook.java` 目前仍為無界狀態，`git log` 中無相關修復 commit。
-  [`RCA-zh-TW.md` 第 10 節](./RCA-zh-TW.md#10-修復方案) 為**修復規格**，非已完成工作。
-- **endurance test 尚未實作。**
+- ✅ **`OrderBook` 已修復（2026-07-23）** — 三個集合全部有界化，保留集合從 O(t) 降為 O(1)。
+- ✅ **endurance test 已補上** — `OrderBookRetentionTest`，並經對照實驗證明有效
+  （無界時保留筆數 1,000 → 100,000、GC 後堆占用 29 MB → 70 MB，斷言正確失敗）。
+- ⬜ **仍未實作** — 維運層加固（`-Xmx`、`-XX:+ExitOnOutOfMemoryError`）、監控層修正，
+  以及檢查工具掃出的其餘 5 個同類欄位（`PaymentApiServer.jobs`、`InMemoryPaymentRepository` 三個、
+  `TradingWebSocketServer.clients`）。
 - 其餘已知限制與未驗證項目見 [第 14 節](./RCA-zh-TW.md#14-已知限制與未驗證項目)。
 
 ## 證據完整性
