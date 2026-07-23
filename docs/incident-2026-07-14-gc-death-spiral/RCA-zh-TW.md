@@ -579,7 +579,8 @@ LeetCode 題目的世界長這樣：
 > 註：原始碼中的 `@Test` 標註為 84 個，另有 5 個 `@ParameterizedTest`。標註數與執行數不同，是因為參數化測試在執行期會展開為多個案例。**引用時應使用執行數（98 / 106），而非標註數。**
 
 - 這些測試中包含針對 `OrderBook` 的重複偵測、top-K 查詢等功能測試——**全部通過**
-- 專案中**沒有任何 endurance / soak / longevity 測試**（`grep -rliE "endurance|soak|longevity"` 回傳空）
+- 事故當時，專案中**沒有任何 endurance / soak / longevity 測試**
+- ✅ **已補上**：`trading-engine-simulator/src/test/java/com/binance/trading/endurance/OrderBookRetentionTest.java`（3 個測試，約 3 秒）
 
 #### ⚠️ 但本機執行時有 1 個測試失敗——而失敗原因正是這起事故
 
@@ -663,10 +664,36 @@ SELL 5,679,210
 
 ## 10. 修復方案
 
-> ⚠️ **重要狀態聲明**
-> **截至本報告撰寫時（2026-07-21），以下修復尚未實作進 repo。**
-> `OrderBook.java:19-21` 目前仍為無界狀態；`git log` 對該檔案僅有兩筆 commit（`d36c26f` 修正 `ConcurrentModificationException`、`0062a81` monorepo 合併），均非本項修復。
-> 本節為**修復規格（remediation specification）**，非已完成工作。
+> ✅ **狀態更新（2026-07-23）：`OrderBook` 的修復已實作並驗證。**
+> 三個集合已全部有界化（10.1、10.2），耐久測試已補上（10.3）。實際落地的作法與本節原規格有一處差異，見 10.0。
+> **尚未實作**：10.4 維運層加固、10.5 監控層修正，以及 checklist 掃出的其餘 5 個同類欄位（`PaymentApiServer.jobs`、`InMemoryPaymentRepository` 三個、`TradingWebSocketServer.clients`）。
+
+### 10.0 實際落地的作法與原規格的差異
+
+原規格建議把 `allOrders` 直接換成 `AtomicLong` 計數器並移除 list。實作時發現**不能這樣做**：
+
+- `TradingApiServer.java:108` 用 `getAllOrders()` 做分頁查詢，`TradingFlowIntegrationTest` 也依賴它篩選 BUY/SELL
+- 直接移除會破壞 API 與既有測試
+
+因此改為**滾動視窗 + 全時計數器並存**：
+
+| 需求 | 作法 |
+|------|------|
+| `totalOrderCount()` / `uniqueOrderCount()` 的全時精確值 | `AtomicLong` 計數器，O(1) 記憶體，不受淘汰影響 |
+| `getAllOrders()` 的查詢能力 | 保留最近 `retention` 筆的滾動視窗 |
+| 重複偵測 | `orders` / `orderIdFrequency` 同步淘汰 |
+
+**容量選擇的依據（這點原規格沒有涵蓋）：**
+
+`TradingEngine.generateOrder()` 產生重複訂單的方式是 `stepsBack = (random.nextInt(3) + 1) * 2`，
+即**只回退 2、4 或 6 個計數**。因此重複 ID 必定落在最近 6 筆之內，
+預設 `retention = 10,000` 提供約 **1,600 倍**餘裕——**有界化在實務上完全不損害重複偵測精確度**。
+
+**另一項偏離：** 原規格建議用 `LinkedHashMap` + `removeEldestEntry`。實作改為保留
+`ConcurrentHashMap` + 明確淘汰佇列，理由是 `LinkedHashMap` 需要 `synchronizedMap` 包裝，
+而 `getOrderIdFrequency()` 被 `TradingApiServer.java:182` 直接序列化輸出——
+在同步包裝的 map 上無鎖迭代會重蹈 BUG-11 的 `ConcurrentModificationException`。
+`ConcurrentHashMap` 的迭代器是弱一致性的，沒有這個問題。
 
 ### 10.1 修復一：消除主要洩漏源 `allOrders`
 
@@ -982,8 +1009,8 @@ ExecStart=/usr/bin/java \
 | # | 項目 | 狀態 |
 |---|------|------|
 | 1 | **堆直方圖原始輸出未保存** | `evidence/RCA_REPORT.md:141` 記載 `Order ≈ 11.19M`，並註明來源為「prior session SA scan」。但**該次 `jhsdb jmap --histo` 的原始輸出檔並未保存於證據集中**；現存的 `java_class_histogram.txt` 內容是 attach 失敗的錯誤訊息。因此 11.19M 這個數字目前只有二手記錄，**不建議作為主要引用數字**。<br>➡️ 建議改引用有硬證據的 **MySQL 11,358,422 筆**。 |
-| 2 | **修復尚未實作** | 第 10 節全部為規格，非已完成工作。`OrderBook.java` 目前仍為無界；`git log` 無相關 commit。 |
-| 3 | **endurance test 尚未實作** | `grep -rliE "endurance\|soak\|longevity"` 於整個 repo 回傳空。第 10.3 節的程式碼為建議實作，未經執行驗證。 |
+| 2 | ~~**修復尚未實作**~~ | ✅ **已解決（2026-07-23）**：`OrderBook` 三個集合已有界化並驗證。**仍未實作**：10.4 維運層、10.5 監控層、其餘 5 個同類欄位。 |
+| 3 | ~~**endurance test 尚未實作**~~ | ✅ **已解決（2026-07-23）**：`OrderBookRetentionTest` 3 個測試，並以對照實驗證明其有效性——將 retention 設為 `Integer.MAX_VALUE` 重現無界行為時，保留筆數 1,000 → 100,000、GC 後堆占用 29 MB → 70 MB，兩個斷言都正確地失敗。 |
 | 4 | **撰寫意圖為推論** | 第 7 節關於「LeetCode 框架導致無界設計」的分析，來自程式碼註解與結構的**反推**，並非來自撰寫過程的直接紀錄。 |
 | 5 | **測試數量歷史值不明** | 目前實際執行數為 **98（CI）/ 106（本機含 MySQL）**，原始碼標註為 84 個 `@Test` + 5 個 `@ParameterizedTest`。事故發生當時的實際數量無法從證據驗證。 |
 | 6 | **早期 GC 數據來源不明** | 部分先前文件引用 `108,997 Full GCs / 465,407s`，但此數值**未出現於本證據集任何檔案中**。保存下來的最早採樣為 `114,876 / 491,204.6s`。推測前者為更早一次採樣，但無法佐證。 |
