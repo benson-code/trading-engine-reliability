@@ -14,6 +14,7 @@
 | 我想要… | 讀這個 |
 |---------|--------|
 | **完整的中文根因分析**（主要文件） | 📄 **[`RCA-zh-TW.md`](./RCA-zh-TW.md)** |
+| **防止再犯的檢查清單** | ✅ **[`../checklists/resource-safety-zh-TW.md`](../checklists/resource-safety-zh-TW.md)** |
 | 30 秒口頭版本 + 面試追問準備 | [`RCA-zh-TW.md` 第 12 節](./RCA-zh-TW.md#12-面試問答準備) |
 | 修復方案與程式碼 | [`RCA-zh-TW.md` 第 10 節](./RCA-zh-TW.md#10-修復方案) |
 | 原始英文分析 | [`evidence/RCA_REPORT.md`](./evidence/RCA_REPORT.md) |
