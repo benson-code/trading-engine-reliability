@@ -90,7 +90,7 @@ Restart=on-failure
 
 因此 JVM 使用**預設人體工學（default ergonomics）**：最大堆 = 實體記憶體的 1/4 = 11 GiB ÷ 4 ≈ **2.91 GiB**。
 
-這個數字與 log 中觀測到的堆大小完全吻合（來源：`evidence/timeline.txt:286`）：
+這個數字與 log 中觀測到的堆大小完全吻合（來源：`evidence/timeline.txt（journal 行 286）`）：
 
 ```
 garbage-first heap   total 3053568K, used 3051505K
@@ -122,19 +122,19 @@ JDK 21 在此規格機器上預設使用 **G1GC（Garbage-First Garbage Collecto
 
 | 時間 | 事件 | 證據來源 |
 |------|------|----------|
-| **07-01 15:46:07** (本地) | systemd 啟動服務，PID 26810 | `timeline.txt:1` |
-| 07-01 15:46:08 (本地) | MySQL 連線建立、WebSocket 啟動於 port 8093 | `timeline.txt:2,6` |
-| 07-01 15:46:08 (本地) | log 明確顯示 `Engine : STOPPED — press RUN in the UI to start` | `timeline.txt:12` |
+| **07-01 15:46:07** (本地) | systemd 啟動服務，PID 26810 | `timeline.txt（journal 行 1）` |
+| 07-01 15:46:08 (本地) | MySQL 連線建立、WebSocket 啟動於 port 8093 | `timeline.txt（journal 行 2,6）` |
+| 07-01 15:46:08 (本地) | log 明確顯示 `Engine : STOPPED — press RUN in the UI to start` | `timeline.txt（journal 行 12）` |
 | **07-01 08:27:34** (UTC) | **第一筆訂單寫入資料庫**（= 使用者從 UI 按下 RUN，比 systemd 啟動晚約 41 分鐘） | `db_order_stats.txt` |
 | 07-01 → 07-08 | 持續產生訂單，速率 **17.29 筆/秒**，記憶體單調累積 | `db_order_stats.txt` |
 | **07-08 22:56:24** (UTC) | **最後一筆成功寫入資料庫的訂單**（累計 11,358,422 筆） | `db_order_stats.txt` |
-| **07-08 22:57:49** (本地) | **首次 `OutOfMemoryError`**，發生在 `idle-timeout-task` 執行緒 | `oome_lines.txt:25` |
-| 07-08 22:58:49 | 第 2 次 OOME — `mysql-cj-abandoned-connection-cleanup`（MySQL 驅動的清理執行緒也配置不到記憶體） | `oome_lines.txt:26` |
-| 07-08 22:59:23 | 第 3 次 OOME — **`SELL-THREAD`**（業務執行緒陣亡） | `oome_lines.txt:27` |
-| 07-08 23:00:14 | 第 4 次 OOME — **`HTTP-Dispatcher`**（REST API 路徑陣亡） | `oome_lines.txt:28` |
-| 07-09 17:50:02 / 17:51:05 | 再次 `OutOfMemoryError: Java heap space` | `oome_lines.txt:30,32` |
-| 07-09 17:51:40 起 | 反覆傾印堆狀態：`total 3053568K, used 3051505K`（**99.93% 使用率**） | `timeline.txt:286,544,801,1059` |
-| 07-13 15:31–15:32 | 又出現三次 `OutOfMemoryError: Java heap space` — **五天後仍在 thrash** | `oome_lines.txt:4149,4665,4667` |
+| **07-08 22:57:49** (本地) | **首次 `OutOfMemoryError`**，發生在 `idle-timeout-task` 執行緒 | `oome_lines.txt（journal 行 25）` |
+| 07-08 22:58:49 | 第 2 次 OOME — `mysql-cj-abandoned-connection-cleanup`（MySQL 驅動的清理執行緒也配置不到記憶體） | `oome_lines.txt（journal 行 26）` |
+| 07-08 22:59:23 | 第 3 次 OOME — **`SELL-THREAD`**（業務執行緒陣亡） | `oome_lines.txt（journal 行 27）` |
+| 07-08 23:00:14 | 第 4 次 OOME — **`HTTP-Dispatcher`**（REST API 路徑陣亡） | `oome_lines.txt（journal 行 28）` |
+| 07-09 17:50:02 / 17:51:05 | 再次 `OutOfMemoryError: Java heap space` | `oome_lines.txt（journal 行 30,32）` |
+| 07-09 17:51:40 起 | 反覆傾印堆狀態：`total 3053568K, used 3051505K`（**99.93% 使用率**） | `timeline.txt（journal 行 286,544,801,1059）` |
+| 07-13 15:31–15:32 | 又出現三次 `OutOfMemoryError: Java heap space` — **五天後仍在 thrash** | `oome_lines.txt（journal 行 4149,4665,4667）` |
 | **07-14 15:01:22** (UTC) | **開始調查與現場取證**（`INCIDENT_START.txt`） | `INCIDENT_START.txt` |
 | 07-21 09:38 (UTC) | 第二次快照取證，進程仍在螺旋中 | `evidence/snapshot-2026-07-21T0938Z/` |
 | **2026-07-21（今日）** | **進程 26810 仍然存活**，`ELAPSED 19-23:32:19`、CPU 126% | 即時 `ps` 查詢 |
@@ -602,7 +602,7 @@ SELL 5,679,210
 
 `TradingEngine` 以雙訊號量（semaphore）強制 BUY / SELL 嚴格交替，因此任一時刻兩者差值不應超過 1。**現在差值為 2，代表交替序列在中途被截斷了一次**——即崩潰當下有一筆 SELL 訂單未能完成寫入。
 
-證據佐證：`evidence/oome_lines.txt:27` 顯示 `SELL-THREAD` 在 07-08 22:59:23 因 OOME 陣亡，而 OOME 序列中**沒有 `BUY-THREAD`**；`evidence/timeline.txt:195` 顯示 `BUY-THREAD` 在隔日的執行緒傾印中仍然存活。**SELL 側先陣亡、BUY 側後陣亡，正好產生 BUY 領先 2 筆的殘差。**
+證據佐證：`evidence/oome_lines.txt（journal 行 27）` 顯示 `SELL-THREAD` 在 07-08 22:59:23 因 OOME 陣亡，而 OOME 序列中**沒有 `BUY-THREAD`**；`evidence/timeline.txt（journal 行 195）` 顯示 `BUY-THREAD` 在隔日的執行緒傾印中仍然存活。**SELL 側先陣亡、BUY 側後陣亡，正好產生 BUY 領先 2 筆的殘差。**
 
 > 💡 **這是本次調查的第五條獨立驗證鏈**——而且是唯一一條「至今仍可即時重現」的證據：任何人只要在這台機器上執行 `mvn test`，就會看到這個失敗。這比任何靜態的 log 檔都更有說服力。
 >
@@ -951,6 +951,8 @@ ExecStart=/usr/bin/java \
 | `evidence/db_order_stats.txt` | ⭐ 資料庫獨立交叉驗證（1,136 萬筆、85 秒時間差） |
 | `evidence/java_class_histogram.txt` | ⭐ attach 逾時的原始錯誤訊息（診斷工具失效證明） |
 | `evidence/oome_lines.txt` | OOME 完整序列與級聯順序 |
+
+> 📌 **引用格式說明：** `timeline.txt` 與 `oome_lines.txt` 是以 `grep -n` 從 systemd journal 萃取而成，因此每一行的開頭數字是**原始 journal 的行號**，不是這兩個檔案自身的行號（`timeline.txt` 實際只有 81 行、`oome_lines.txt` 只有 9 行）。本報告中標示為「journal 行 N」者，指的是該行首的數字，可用 `grep -n '^N:' <檔案>` 定位。
 | `evidence/SNAPSHOT.txt` | 主機規格、進程狀態、load average |
 | `evidence/api_status.txt` | HTTP API 無回應（curl 逾時） |
 | `evidence/timeline.txt` | 關鍵事件時間軸與堆使用率傾印 |
