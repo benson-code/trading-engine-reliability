@@ -74,9 +74,12 @@ private final List<Order>          allOrders         = Collections.synchronizedL
 - ✅ **`OrderBook` 已修復（2026-07-23）** — 三個集合全部有界化，保留集合從 O(t) 降為 O(1)。
 - ✅ **endurance test 已補上** — `OrderBookRetentionTest`，並經對照實驗證明有效
   （無界時保留筆數 1,000 → 100,000、GC 後堆占用 29 MB → 70 MB，斷言正確失敗）。
-- ⬜ **仍未實作** — 維運層加固（`-Xmx`、`-XX:+ExitOnOutOfMemoryError`）、監控層修正，
-  以及檢查工具掃出的其餘 5 個同類欄位（`PaymentApiServer.jobs`、`InMemoryPaymentRepository` 三個、
-  `TradingWebSocketServer.clients`）。
+- ✅ **同類欄位全數處理完畢** — 檢查工具掃描歸零（11 個聲明、0 違規），且已接進 CI。
+- ✅ **維運層 unit 檔已提供** — [`deploy/binance-trading-engine.service`](../../deploy/binance-trading-engine.service)，
+  含 `-Xmx1g`、`-XX:+ExitOnOutOfMemoryError`、`-XX:+HeapDumpOnOutOfMemoryError`、GC log，
+  已通過 `systemd-analyze verify`。
+- ⬜ **仍未實作** — 上述 unit 檔**尚未套用到主機**（現場保留政策禁止重啟 PID 26810），
+  以及監控層的業務進度告警。
 - 其餘已知限制與未驗證項目見 [第 14 節](./RCA-zh-TW.md#14-已知限制與未驗證項目)。
 
 ## 證據完整性

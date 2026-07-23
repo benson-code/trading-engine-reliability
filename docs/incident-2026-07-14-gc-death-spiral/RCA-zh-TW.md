@@ -666,7 +666,9 @@ SELL 5,679,210
 
 > ✅ **狀態更新（2026-07-23）：`OrderBook` 的修復已實作並驗證。**
 > 三個集合已全部有界化（10.1、10.2），耐久測試已補上（10.3）。實際落地的作法與本節原規格有一處差異，見 10.0。
-> **尚未實作**：10.4 維運層加固、10.5 監控層修正，以及 checklist 掃出的其餘 5 個同類欄位（`PaymentApiServer.jobs`、`InMemoryPaymentRepository` 三個、`TradingWebSocketServer.clients`）。
+> **後續進度（2026-07-23）**：checklist 掃出的其餘 5 個同類欄位已全部處理（掃描歸零並接進 CI）；
+> 10.4 的加固 unit 檔已提供於 `deploy/binance-trading-engine.service`。
+> **仍未實作**：該 unit 檔尚未套用到主機（現場保留政策禁止重啟 PID 26810），以及 10.5 的監控層告警。
 
 ### 10.0 實際落地的作法與原規格的差異
 

@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,8 +60,26 @@ public class PaymentApiServer {
                 return t;
             });
 
-    /** jobId → settlement state, populated on accept, flipped to SUCCESS by {@link #settler}. */
+    /** Settlement jobs retained for status polling before the oldest is dropped. */
+    static final int JOB_RETENTION = 10_000;
+
+    /**
+     * jobId → settlement state, populated on accept, flipped to SUCCESS by {@link #settler}.
+     *
+     * <p>BOUNDED-BY: {@link #trackAndEvictJob(String)} drops the oldest entry once
+     * {@link #JOB_RETENTION} is exceeded. Job state is transient — a client polls
+     * {@code /status} shortly after accept — so old entries have no readers. Polling a jobId
+     * that has aged out returns 404, the same response as an unknown jobId.
+     */
     private final ConcurrentHashMap<String, Job> jobs = new ConcurrentHashMap<>();
+
+    // BOUNDED-BY: one id per entry in `jobs`, so it shares that bound; guarded by `jobEvictionLock`
+    private final Deque<String> jobInsertionOrder = new ArrayDeque<>();
+
+    private final Object jobEvictionLock = new Object();
+
+    /** Effective job retention. Overridable so the endurance test can exercise eviction fast. */
+    private final int jobRetention;
 
     private record Job(String paymentId, String status) {}
 
@@ -73,6 +93,15 @@ public class PaymentApiServer {
 
     public PaymentApiServer(int port, PaymentService paymentService, long settleDelayMs, String apiKey)
             throws IOException {
+        this(port, paymentService, settleDelayMs, apiKey, JOB_RETENTION);
+    }
+
+    PaymentApiServer(int port, PaymentService paymentService, long settleDelayMs, String apiKey,
+                     int jobRetention) throws IOException {
+        if (jobRetention < 1) {
+            throw new IllegalArgumentException("jobRetention must be >= 1, got " + jobRetention);
+        }
+        this.jobRetention = jobRetention;
         this.paymentService = paymentService;
         this.settleDelayMs = settleDelayMs;
         this.apiKey = (apiKey == null || apiKey.isBlank()) ? null : apiKey;
@@ -161,14 +190,39 @@ public class PaymentApiServer {
         }
 
         // Register the job and schedule async settlement (only on first create).
+        boolean[] registered = { false };
         jobs.computeIfAbsent(resp.getJobId(), jid -> {
             settler.schedule(
                     () -> jobs.put(jid, new Job(resp.getPaymentId(), "SUCCESS")),
                     settleDelayMs, TimeUnit.MILLISECONDS);
+            registered[0] = true;
             return new Job(resp.getPaymentId(), "PENDING");
         });
+        if (registered[0]) {
+            trackAndEvictJob(resp.getJobId());
+        }
 
         send(ex, replay ? 200 : 202, toJson(resp));
+    }
+
+    /**
+     * Records a newly registered job and drops the oldest once retention is exceeded.
+     *
+     * <p>Called only for genuinely new jobIds, so the deque holds exactly one entry per
+     * live job and can never outgrow {@code jobs}.
+     */
+    private void trackAndEvictJob(String jobId) {
+        synchronized (jobEvictionLock) {
+            jobInsertionOrder.addLast(jobId);
+            while (jobInsertionOrder.size() > jobRetention) {
+                jobs.remove(jobInsertionOrder.removeFirst());
+            }
+        }
+    }
+
+    /** Jobs currently retained. Never exceeds the configured job retention. */
+    int retainedJobCount() {
+        synchronized (jobEvictionLock) { return jobInsertionOrder.size(); }
     }
 
     private void handleStatus(HttpExchange ex, String jobId) throws IOException {

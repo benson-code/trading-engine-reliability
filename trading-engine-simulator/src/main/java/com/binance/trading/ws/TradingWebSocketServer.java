@@ -21,6 +21,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class TradingWebSocketServer extends WebSocketServer {
 
     private final ObjectMapper                      mapper  = new ObjectMapper();
+
+    // BOUNDED-BY: live connections only — onClose (L40) and onError (L51) remove the socket,
+    // so size tracks concurrently open clients rather than cumulative connections.
     private final ConcurrentLinkedQueue<WebSocket>  clients = new ConcurrentLinkedQueue<>();
 
     public TradingWebSocketServer(int port) {
