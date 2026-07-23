@@ -88,8 +88,8 @@ private final List<Order> allOrders = new ArrayList<>();
 
 ```
 已有淘汰機制    : 1
-已 BOUNDED-BY 聲明: 4
-未聲明（違規）  : 5
+已 BOUNDED-BY 聲明: 11
+未聲明（違規）  : 0
 ```
 
 | # | 位置 | 實際狀態 | 判定 |
@@ -97,11 +97,11 @@ private final List<Order> allOrders = new ArrayList<>();
 | 1 | `OrderBook` `orders` | ✅ 已有界化 + BOUNDED-BY 聲明 | 🟢 **已修復 2026-07-23** |
 | 2 | `OrderBook` `orderIdFrequency` | ✅ 與 `orders` 同步淘汰 | 🟢 **已修復 2026-07-23** |
 | 3 | `OrderBook` `allOrders` → `recentOrders` | ✅ 滾動視窗 + `AtomicLong` 全時計數器 | 🟢 **已修復 2026-07-23** |
-| 4 | `PaymentApiServer.java:62` `jobs` | 只有 `put` / `computeIfAbsent`，**無 `remove`** | 🔴 **同類真缺陷（新發現）** |
-| 5 | `InMemoryPaymentRepository.java:37` `byIdempotencyKey` | 只有 `computeIfAbsent`，**無 `remove`** | 🔴 **同類真缺陷（新發現）** |
-| 6 | `InMemoryPaymentRepository.java:38` `balances` | `put` / `compute`，無移除 | 🟡 由帳戶數界定，需 BOUNDED-BY |
-| 7 | `InMemoryPaymentRepository.java:39` `currencies` | `put` / `getOrDefault`，無移除 | 🟡 由帳戶數界定，需 BOUNDED-BY |
-| 8 | `TradingWebSocketServer.java:24` `clients` | `add` **且有 2 處 `remove`** | 🟢 由連線生命週期界定，需 BOUNDED-BY |
+| 4 | `PaymentApiServer` `jobs` | ✅ 已有界化（結算狀態為暫時性） | 🟢 **已修復 2026-07-23** |
+| 5 | `InMemoryPaymentRepository` `byIdempotencyKey` | ✅ 已有界化，**並在 javadoc 明載取捨** | 🟢 **已修復 2026-07-23** |
+| 6 | `InMemoryPaymentRepository` `balances` | ✅ 已聲明。**刻意不淘汰**——淘汰等於憑空重設餘額 | 🟢 **已聲明 2026-07-23** |
+| 7 | `InMemoryPaymentRepository` `currencies` | ✅ 已聲明，與 `balances` 同理 | 🟢 **已聲明 2026-07-23** |
+| 8 | `TradingWebSocketServer` `clients` | ✅ 已聲明（連線生命週期界定） | 🟢 **已聲明 2026-07-23** |
 
 > 📌 **這張表本身就是這份清單的價值證明。**
 > 這個檢查在啟用的第一次執行，就找出了**兩個先前未知、與本次事故同類的缺陷**：
@@ -120,9 +120,10 @@ private final List<Order> allOrders = new ArrayList<>();
         run: tools/check-bounded-collections.sh
 ```
 
-> ⚠️ **啟用順序很重要。** 目前有 8 個違規項，直接接進 CI 會讓所有 PR 變紅。
-> 正確做法是**先處理完現有違規（見 L1.2 表格），再啟用檢查**，否則團隊會學會忽略紅燈——
-> 那比沒有檢查更糟。
+> ✅ **已於 2026-07-23 接進 CI**（`.github/workflows/ci.yml`，位於 `mvn test` 之前）。
+>
+> 啟用順序很重要：先把 8 個違規全部處理完、掃描歸零，才接進 CI。
+> 若在還有違規時就接上，所有 PR 都會變紅，團隊會學會忽略紅燈——那比沒有檢查更糟。
 
 ### 1.4 耐久測試（endurance test）
 
@@ -311,10 +312,11 @@ L1 就是照這個原則設計的——不宣告就過不了 CI。
 ## 待辦
 
 - [x] ~~處理 `OrderBook` 的 3 個違規項~~ ✅ 2026-07-23
-- [ ] 處理其餘 5 個違規項（`PaymentApiServer.jobs`、`InMemoryPaymentRepository` 三個、`TradingWebSocketServer.clients`）
-- [ ] 處理完後將 `tools/check-bounded-collections.sh` 接進 CI（見 1.3）
+- [x] ~~處理其餘 5 個違規項~~ ✅ 2026-07-23（掃描已歸零）
+- [x] ~~接進 CI~~ ✅ 2026-07-23
 - [x] ~~實作 endurance test~~ ✅ 2026-07-23
-- [ ] 為所有常駐 JVM 服務補上 L3.1 的啟動參數
+- [x] ~~提供加固後的 unit 檔~~ ✅ 2026-07-23：`deploy/binance-trading-engine.service`（已通過 `systemd-analyze verify`）
+- [ ] 實際套用到主機 — **尚未執行**，因事故現場保留政策禁止重啟 PID 26810
 - [ ] 設定 L3.2 的業務進度告警
 
 ---
