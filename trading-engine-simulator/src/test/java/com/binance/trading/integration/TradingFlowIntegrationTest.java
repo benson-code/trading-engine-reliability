@@ -82,8 +82,8 @@ class TradingFlowIntegrationTest {
         assertFalse(duplicates.isEmpty(),
             "Pattern 1 FAIL: 20% duplicate rate → expect duplicates after 2s, got 0");
 
-        int uniqueCount = engine.getOrderBook().uniqueOrderCount();
-        int totalCount  = engine.getOrderBook().totalOrderCount();
+        long uniqueCount = engine.getOrderBook().uniqueOrderCount();
+        long totalCount  = engine.getOrderBook().totalOrderCount();
         assertTrue(totalCount > uniqueCount,
             "Pattern 1 FAIL: total(" + totalCount + ") must exceed unique(" + uniqueCount + ")");
 
