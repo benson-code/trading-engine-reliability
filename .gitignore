@@ -22,3 +22,6 @@ trading-engine-simulator/allure-results/
 DEMO_GUIDE.md
 verify_suite.sh
 *.log
+
+# Exception: preserved incident evidence must stay complete (forensic integrity)
+!docs/incident-*/evidence/**/*.log

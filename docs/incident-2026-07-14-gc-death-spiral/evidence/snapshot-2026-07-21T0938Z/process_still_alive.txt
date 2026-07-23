@@ -1,0 +1,4 @@
+2026-07-21T09:38:45Z
+    PID %CPU   RSS     ELAPSED CMD
+  26810  125 3220828 19-17:52:38 /usr/bin/java -jar /home/ubuntu/qa/trading-engine-simulator/target/trading-engine-simulator-1.0.0.jar
+STILL_ALIVE=yes

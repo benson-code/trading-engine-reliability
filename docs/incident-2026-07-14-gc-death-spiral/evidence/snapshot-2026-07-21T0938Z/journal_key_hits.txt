@@ -1,0 +1,439 @@
+1:2026-07-01T15:46:07.831714+00:00 orion-dev systemd[1]: Started binance-trading-engine.service - Binance Trading Engine Simulator (Port 8092/8093).
+8:2026-07-01T15:46:08.651151+00:00 orion-dev java[26810]: ║    Binance Trading Engine Simulator          ║
+12:2026-07-01T15:46:08.653613+00:00 orion-dev java[26810]:   Engine    : STOPPED — press RUN in the UI to start
+25:2026-07-08T22:57:49.981748+00:00 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "idle-timeout-task"
+26:2026-07-08T22:58:49.603439+00:00 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "mysql-cj-abandoned-connection-cleanup"
+27:2026-07-08T22:59:23.744749+00:00 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "SELL-THREAD"
+28:2026-07-08T23:00:14.971585+00:00 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "HTTP-Dispatcher"
+29:2026-07-09T17:50:02.549056+00:00 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+30:2026-07-09T17:50:02.549641+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+31:2026-07-09T17:51:05.693735+00:00 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+32:2026-07-09T17:51:05.697149+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+195:2026-07-09T17:51:14.678853+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280993.90ms elapsed=629535.83s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+202:2026-07-09T17:51:14.678853+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+203:2026-07-09T17:51:14.678853+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+276:2026-07-09T17:51:14.682153+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68799535.39ms elapsed=698706.32s tid=0x0000e51b900060b0 nid=26842 runnable
+283:2026-07-09T17:51:14.682153+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68792401.05ms elapsed=698706.83s tid=0x0000e51bd406c5d0 nid=26820 runnable
+286:2026-07-09T17:51:40.985445+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+452:2026-07-09T17:51:40.990362+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280994.02ms elapsed=629562.14s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+459:2026-07-09T17:51:40.990728+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+460:2026-07-09T17:51:40.990728+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+534:2026-07-09T17:51:40.992160+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68824963.57ms elapsed=698732.63s tid=0x0000e51b900060b0 nid=26842 runnable
+541:2026-07-09T17:51:40.993171+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68817758.78ms elapsed=698733.14s tid=0x0000e51bd406c5d0 nid=26820 runnable
+544:2026-07-09T17:52:06.886128+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+710:2026-07-09T17:52:06.893047+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280994.12ms elapsed=629588.04s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+717:2026-07-09T17:52:06.893047+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+718:2026-07-09T17:52:06.893047+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+791:2026-07-09T17:52:06.896807+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68850427.16ms elapsed=698758.53s tid=0x0000e51b900060b0 nid=26842 runnable
+798:2026-07-09T17:52:06.896807+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68843414.15ms elapsed=698759.04s tid=0x0000e51bd406c5d0 nid=26820 runnable
+801:2026-07-09T17:52:24.385051+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+968:2026-07-09T17:52:24.393214+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280994.18ms elapsed=629605.54s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+975:2026-07-09T17:52:24.393507+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+976:2026-07-09T17:52:24.393507+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+1049:2026-07-09T17:52:24.394390+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68867564.46ms elapsed=698776.03s tid=0x0000e51b900060b0 nid=26842 runnable
+1056:2026-07-09T17:52:24.395745+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68860314.87ms elapsed=698776.54s tid=0x0000e51bd406c5d0 nid=26820 runnable
+1059:2026-07-09T17:53:08.914249+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+1225:2026-07-09T17:53:08.922211+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280994.34ms elapsed=629650.08s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+1232:2026-07-09T17:53:08.922211+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+1233:2026-07-09T17:53:08.922211+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+1307:2026-07-09T17:53:08.925161+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68910115.75ms elapsed=698820.57s tid=0x0000e51b900060b0 nid=26842 runnable
+1314:2026-07-09T17:53:08.925161+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68902798.02ms elapsed=698821.08s tid=0x0000e51bd406c5d0 nid=26820 runnable
+1317:2026-07-09T17:53:35.031764+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+1482:2026-07-09T17:53:35.044590+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280994.42ms elapsed=629676.19s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+1489:2026-07-09T17:53:35.044590+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+1490:2026-07-09T17:53:35.044590+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+1564:2026-07-09T17:53:35.050412+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68935657.45ms elapsed=698846.68s tid=0x0000e51b900060b0 nid=26842 runnable
+1571:2026-07-09T17:53:35.050412+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68928126.77ms elapsed=698847.19s tid=0x0000e51bd406c5d0 nid=26820 runnable
+1574:2026-07-09T17:53:53.311349+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+1740:2026-07-09T17:53:53.323484+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280994.48ms elapsed=629694.47s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+1747:2026-07-09T17:53:53.323484+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+1748:2026-07-09T17:53:53.323484+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+1821:2026-07-09T17:53:53.324958+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68953038.63ms elapsed=698864.96s tid=0x0000e51b900060b0 nid=26842 runnable
+1828:2026-07-09T17:53:53.324958+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68944809.36ms elapsed=698865.47s tid=0x0000e51bd406c5d0 nid=26820 runnable
+1831:2026-07-09T17:54:11.425665+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+1997:2026-07-09T17:54:11.433239+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280994.52ms elapsed=629712.58s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+2004:2026-07-09T17:54:11.433239+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+2005:2026-07-09T17:54:11.433239+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+2078:2026-07-09T17:54:11.434426+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68970204.08ms elapsed=698883.07s tid=0x0000e51b900060b0 nid=26842 runnable
+2085:2026-07-09T17:54:11.434426+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68961746.46ms elapsed=698883.58s tid=0x0000e51bd406c5d0 nid=26820 runnable
+2088:2026-07-09T17:54:32.155944+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+2254:2026-07-09T17:54:32.169856+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280994.58ms elapsed=629733.31s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+2261:2026-07-09T17:54:32.169856+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+2262:2026-07-09T17:54:32.169856+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+2335:2026-07-09T17:54:32.175469+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=68988301.02ms elapsed=698903.81s tid=0x0000e51b900060b0 nid=26842 runnable
+2342:2026-07-09T17:54:32.175469+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=68979238.95ms elapsed=698904.32s tid=0x0000e51bd406c5d0 nid=26820 runnable
+2345:2026-07-09T17:55:03.971568+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+2511:2026-07-09T17:55:03.981693+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280994.69ms elapsed=629765.13s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+2518:2026-07-09T17:55:03.982015+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+2519:2026-07-09T17:55:03.982015+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+2592:2026-07-09T17:55:03.985003+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69015279.74ms elapsed=698935.62s tid=0x0000e51b900060b0 nid=26842 runnable
+2599:2026-07-09T17:55:03.985003+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69005322.39ms elapsed=698936.13s tid=0x0000e51bd406c5d0 nid=26820 runnable
+2602:2026-07-09T17:55:56.236438+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+2768:2026-07-09T17:56:21.805186+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280995.01ms elapsed=629842.96s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+2775:2026-07-09T17:56:21.805186+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+2776:2026-07-09T17:56:21.805186+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+2849:2026-07-09T17:56:21.808282+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69092132.88ms elapsed=699013.45s tid=0x0000e51b900060b0 nid=26842 runnable
+2856:2026-07-09T17:56:21.808282+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69080947.39ms elapsed=699013.96s tid=0x0000e51bd406c5d0 nid=26820 runnable
+2859:2026-07-09T17:56:47.274036+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+3025:2026-07-09T17:57:04.304749+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280995.20ms elapsed=629885.46s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+3032:2026-07-09T17:57:04.305052+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+3033:2026-07-09T17:57:04.305052+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+3106:2026-07-09T17:57:04.306580+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69134454.03ms elapsed=699055.95s tid=0x0000e51b900060b0 nid=26842 runnable
+3113:2026-07-09T17:57:04.306948+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69123117.20ms elapsed=699056.46s tid=0x0000e51bd406c5d0 nid=26820 runnable
+3116:2026-07-09T17:57:38.280546+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+3281:2026-07-09T17:57:46.784106+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280995.37ms elapsed=629927.93s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+3288:2026-07-09T17:57:46.784106+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+3289:2026-07-09T17:57:46.784106+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+3363:2026-07-09T17:57:46.785285+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69176720.91ms elapsed=699098.43s tid=0x0000e51b900060b0 nid=26842 runnable
+3370:2026-07-09T17:57:46.785285+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69165301.28ms elapsed=699098.93s tid=0x0000e51bd406c5d0 nid=26820 runnable
+3373:2026-07-09T17:58:12.242145+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+3538:2026-07-09T17:58:12.248433+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280995.49ms elapsed=629953.40s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+3545:2026-07-09T17:58:12.248433+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+3546:2026-07-09T17:58:12.249709+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+3620:2026-07-09T17:58:12.253109+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69202037.35ms elapsed=699123.89s tid=0x0000e51b900060b0 nid=26842 runnable
+3627:2026-07-09T17:58:12.253109+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69190628.01ms elapsed=699124.40s tid=0x0000e51bd406c5d0 nid=26820 runnable
+3630:2026-07-09T17:58:37.782381+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+3795:2026-07-09T17:58:37.791466+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280995.58ms elapsed=629978.94s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+3802:2026-07-09T17:58:37.791466+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+3803:2026-07-09T17:58:37.791466+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+3877:2026-07-09T17:58:37.793436+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69227431.55ms elapsed=699149.43s tid=0x0000e51b900060b0 nid=26842 runnable
+3884:2026-07-09T17:58:37.793436+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69215941.91ms elapsed=699149.94s tid=0x0000e51bd406c5d0 nid=26820 runnable
+3887:2026-07-09T17:58:54.801633+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+4053:2026-07-09T17:58:54.808514+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=280995.63ms elapsed=629995.96s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+4060:2026-07-09T17:58:54.808514+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+4061:2026-07-09T17:58:54.808514+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+4134:2026-07-09T17:58:54.811126+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=69244344.02ms elapsed=699166.45s tid=0x0000e51b900060b0 nid=26842 runnable
+4141:2026-07-09T17:58:54.811126+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=69232865.97ms elapsed=699166.96s tid=0x0000e51bd406c5d0 nid=26820 runnable
+4144:2026-07-09T17:59:11.827659+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+4148:2026-07-13T15:31:08.835940+00:00 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+4149:2026-07-13T15:31:08.835940+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+4311:2026-07-13T15:31:08.849833+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282365.98ms elapsed=966729.99s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+4318:2026-07-13T15:31:08.849833+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+4319:2026-07-13T15:31:08.850137+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+4392:2026-07-13T15:31:08.851097+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403244013.80ms elapsed=1035900.48s tid=0x0000e51b900060b0 nid=26842 runnable
+4399:2026-07-13T15:31:08.851097+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403234399.45ms elapsed=1035900.99s tid=0x0000e51bd406c5d0 nid=26820 runnable
+4402:2026-07-13T15:31:34.729414+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+4568:2026-07-13T15:31:34.739076+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282366.06ms elapsed=966755.89s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+4575:2026-07-13T15:31:34.739372+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+4576:2026-07-13T15:31:34.739372+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+4650:2026-07-13T15:31:34.740636+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403269495.92ms elapsed=1035926.38s tid=0x0000e51b900060b0 nid=26842 runnable
+4657:2026-07-13T15:31:34.740944+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403259799.16ms elapsed=1035926.89s tid=0x0000e51bd406c5d0 nid=26820 runnable
+4660:2026-07-13T15:32:10.784019+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+4664:2026-07-13T15:32:19.932146+00:00 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+4665:2026-07-13T15:32:19.932146+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+4666:2026-07-13T15:32:28.984301+00:00 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+4667:2026-07-13T15:32:28.984671+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+4829:2026-07-13T15:32:38.071134+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282366.27ms elapsed=966819.22s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+4836:2026-07-13T15:32:38.071134+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+4837:2026-07-13T15:32:38.071134+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+4910:2026-07-13T15:32:38.074411+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403328781.49ms elapsed=1035989.71s tid=0x0000e51b900060b0 nid=26842 runnable
+4917:2026-07-13T15:32:38.074411+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403319592.48ms elapsed=1035990.22s tid=0x0000e51bd406c5d0 nid=26820 runnable
+4920:2026-07-13T15:32:56.021902+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+5086:2026-07-13T15:33:04.938283+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282366.35ms elapsed=966846.09s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+5093:2026-07-13T15:33:04.938283+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+5094:2026-07-13T15:33:04.938283+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+5167:2026-07-13T15:33:04.941906+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403354712.14ms elapsed=1036016.58s tid=0x0000e51b900060b0 nid=26842 runnable
+5174:2026-07-13T15:33:04.941906+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403344694.79ms elapsed=1036017.09s tid=0x0000e51bd406c5d0 nid=26820 runnable
+5177:2026-07-13T15:33:31.111008+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+5343:2026-07-13T15:33:31.118354+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282366.43ms elapsed=966872.27s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+5350:2026-07-13T15:33:31.118354+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+5351:2026-07-13T15:33:31.118354+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+5424:2026-07-13T15:33:31.119712+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403380384.12ms elapsed=1036042.76s tid=0x0000e51b900060b0 nid=26842 runnable
+5431:2026-07-13T15:33:31.119712+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403370106.22ms elapsed=1036043.27s tid=0x0000e51bd406c5d0 nid=26820 runnable
+5434:2026-07-13T15:33:57.873433+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+5600:2026-07-13T15:33:57.883277+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282366.52ms elapsed=966899.03s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+5607:2026-07-13T15:33:57.883277+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+5608:2026-07-13T15:33:57.883277+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+5682:2026-07-13T15:33:57.886322+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403406116.54ms elapsed=1036069.52s tid=0x0000e51b900060b0 nid=26842 runnable
+5689:2026-07-13T15:33:57.886322+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403395364.06ms elapsed=1036070.03s tid=0x0000e51bd406c5d0 nid=26820 runnable
+5692:2026-07-13T15:34:24.368296+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+5857:2026-07-13T15:34:24.376786+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282366.60ms elapsed=966925.53s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+5864:2026-07-13T15:34:24.376786+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+5865:2026-07-13T15:34:24.376786+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+5939:2026-07-13T15:34:24.381644+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403431646.36ms elapsed=1036096.02s tid=0x0000e51b900060b0 nid=26842 runnable
+5946:2026-07-13T15:34:24.381644+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403421204.05ms elapsed=1036096.52s tid=0x0000e51bd406c5d0 nid=26820 runnable
+5949:2026-07-13T15:34:50.481178+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+6114:2026-07-13T15:34:50.493565+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282366.72ms elapsed=966951.64s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+6121:2026-07-13T15:34:50.493565+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+6122:2026-07-13T15:34:50.493565+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+6196:2026-07-13T15:34:50.498237+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403457215.76ms elapsed=1036122.13s tid=0x0000e51b900060b0 nid=26842 runnable
+6203:2026-07-13T15:34:50.498237+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403446754.13ms elapsed=1036122.64s tid=0x0000e51bd406c5d0 nid=26820 runnable
+6206:2026-07-13T15:35:17.145097+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+6372:2026-07-13T15:35:17.155208+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282366.82ms elapsed=966978.30s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+6379:2026-07-13T15:35:17.155893+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+6380:2026-07-13T15:35:17.155893+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+6454:2026-07-13T15:35:17.160877+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403482937.50ms elapsed=1036148.79s tid=0x0000e51b900060b0 nid=26842 runnable
+6461:2026-07-13T15:35:17.161230+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403472056.80ms elapsed=1036149.30s tid=0x0000e51bd406c5d0 nid=26820 runnable
+6464:2026-07-13T15:35:44.675641+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+6630:2026-07-13T15:35:44.679285+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282366.90ms elapsed=967005.83s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+6637:2026-07-13T15:35:44.679285+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+6638:2026-07-13T15:35:44.679285+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+6711:2026-07-13T15:35:44.682207+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403508306.93ms elapsed=1036176.32s tid=0x0000e51b900060b0 nid=26842 runnable
+6718:2026-07-13T15:35:44.682207+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403497619.74ms elapsed=1036176.83s tid=0x0000e51bd406c5d0 nid=26820 runnable
+6721:2026-07-13T15:36:30.402587+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+6887:2026-07-13T15:36:30.408623+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282367.05ms elapsed=967051.56s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+6894:2026-07-13T15:36:30.408623+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+6895:2026-07-13T15:36:30.408623+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+6968:2026-07-13T15:36:30.411015+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403551181.22ms elapsed=1036222.05s tid=0x0000e51b900060b0 nid=26842 runnable
+6975:2026-07-13T15:36:30.411015+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403539875.26ms elapsed=1036222.56s tid=0x0000e51bd406c5d0 nid=26820 runnable
+6978:2026-07-13T15:36:56.861553+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+7144:2026-07-13T15:36:56.865435+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282367.12ms elapsed=967078.02s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+7151:2026-07-13T15:36:56.865761+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+7152:2026-07-13T15:36:56.865761+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+7225:2026-07-13T15:36:56.867805+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403576633.55ms elapsed=1036248.51s tid=0x0000e51b900060b0 nid=26842 runnable
+7232:2026-07-13T15:36:56.872589+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403565261.78ms elapsed=1036249.02s tid=0x0000e51bd406c5d0 nid=26820 runnable
+7235:2026-07-13T15:37:32.009585+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+7401:2026-07-13T15:37:49.216266+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282367.27ms elapsed=967130.36s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+7408:2026-07-13T15:37:49.216266+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+7409:2026-07-13T15:37:49.216266+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+7482:2026-07-13T15:37:49.222073+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403627552.86ms elapsed=1036300.85s tid=0x0000e51b900060b0 nid=26842 runnable
+7489:2026-07-13T15:37:49.222073+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403616200.16ms elapsed=1036301.36s tid=0x0000e51bd406c5d0 nid=26820 runnable
+7492:2026-07-13T15:38:14.983033+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+7658:2026-07-13T15:38:23.850489+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282367.40ms elapsed=967165.00s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+7665:2026-07-13T15:38:23.850489+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+7666:2026-07-13T15:38:23.850489+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+7739:2026-07-13T15:38:23.854187+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403661498.35ms elapsed=1036335.49s tid=0x0000e51b900060b0 nid=26842 runnable
+7746:2026-07-13T15:38:23.854187+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403650220.95ms elapsed=1036336.00s tid=0x0000e51bd406c5d0 nid=26820 runnable
+7749:2026-07-13T15:39:00.804696+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+7915:2026-07-13T15:39:00.812707+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282367.54ms elapsed=967201.96s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+7922:2026-07-13T15:39:00.812707+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+7923:2026-07-13T15:39:00.812707+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+7996:2026-07-13T15:39:00.814992+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403695537.85ms elapsed=1036372.45s tid=0x0000e51b900060b0 nid=26842 runnable
+8003:2026-07-13T15:39:00.814992+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403684218.04ms elapsed=1036372.96s tid=0x0000e51bd406c5d0 nid=26820 runnable
+8006:2026-07-13T15:39:45.742641+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+8172:2026-07-13T15:39:54.583381+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282367.73ms elapsed=967255.72s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+8179:2026-07-13T15:39:54.583381+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+8180:2026-07-13T15:39:54.583381+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+8253:2026-07-13T15:39:54.587071+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403746951.33ms elapsed=1036426.21s tid=0x0000e51b900060b0 nid=26842 runnable
+8260:2026-07-13T15:39:54.587071+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403734882.19ms elapsed=1036426.72s tid=0x0000e51bd406c5d0 nid=26820 runnable
+8263:2026-07-13T15:40:12.322680+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+8429:2026-07-13T15:40:12.333195+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282367.79ms elapsed=967273.48s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+8436:2026-07-13T15:40:12.333195+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+8437:2026-07-13T15:40:12.333195+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+8510:2026-07-13T15:40:12.336151+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403763473.10ms elapsed=1036443.97s tid=0x0000e51b900060b0 nid=26842 runnable
+8517:2026-07-13T15:40:12.336151+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403752290.97ms elapsed=1036444.48s tid=0x0000e51bd406c5d0 nid=26820 runnable
+8520:2026-07-13T15:40:39.079256+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+8686:2026-07-13T15:40:39.085996+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282367.88ms elapsed=967300.24s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+8693:2026-07-13T15:40:39.085996+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+8694:2026-07-13T15:40:39.085996+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+8767:2026-07-13T15:40:39.087229+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403788854.09ms elapsed=1036470.73s tid=0x0000e51b900060b0 nid=26842 runnable
+8774:2026-07-13T15:40:39.087229+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403777836.96ms elapsed=1036471.23s tid=0x0000e51bd406c5d0 nid=26820 runnable
+8777:2026-07-13T15:41:05.208742+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+8943:2026-07-13T15:41:05.213386+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282367.97ms elapsed=967326.36s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+8950:2026-07-13T15:41:05.213386+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+8951:2026-07-13T15:41:05.213386+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+9024:2026-07-13T15:41:05.216085+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403814280.33ms elapsed=1036496.86s tid=0x0000e51b900060b0 nid=26842 runnable
+9031:2026-07-13T15:41:05.216085+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403803503.48ms elapsed=1036497.36s tid=0x0000e51bd406c5d0 nid=26820 runnable
+9034:2026-07-13T15:41:30.884088+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+9201:2026-07-13T15:41:30.896981+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282368.07ms elapsed=967352.04s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+9208:2026-07-13T15:41:30.896981+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+9209:2026-07-13T15:41:30.896981+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+9282:2026-07-13T15:41:30.900658+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403839690.96ms elapsed=1036522.53s tid=0x0000e51b900060b0 nid=26842 runnable
+9289:2026-07-13T15:41:30.900658+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403828913.07ms elapsed=1036523.04s tid=0x0000e51bd406c5d0 nid=26820 runnable
+9292:2026-07-13T15:41:47.878963+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+9459:2026-07-13T15:41:56.381680+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282368.14ms elapsed=967377.53s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+9466:2026-07-13T15:41:56.381680+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+9467:2026-07-13T15:41:56.381680+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+9540:2026-07-13T15:41:56.385432+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=403865063.22ms elapsed=1036548.02s tid=0x0000e51b900060b0 nid=26842 runnable
+9547:2026-07-13T15:41:56.385432+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=403854208.74ms elapsed=1036548.53s tid=0x0000e51bd406c5d0 nid=26820 runnable
+9550:2026-07-13T15:42:13.382662+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+9554:2026-07-14T15:02:02.368232+00:00 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+9555:2026-07-14T15:02:02.372901+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+9556:2026-07-14T15:02:20.050037+00:00 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+9557:2026-07-14T15:02:20.050037+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+9558:2026-07-14T15:02:29.102304+00:00 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+9559:2026-07-14T15:02:29.102304+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+9721:2026-07-14T15:02:29.112023+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282655.49ms elapsed=1051410.26s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+9728:2026-07-14T15:02:29.112023+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+9729:2026-07-14T15:02:29.112023+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+9802:2026-07-14T15:02:29.116131+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486503336.37ms elapsed=1120580.75s tid=0x0000e51b900060b0 nid=26842 runnable
+9809:2026-07-14T15:02:29.116131+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486490514.99ms elapsed=1120581.26s tid=0x0000e51bd406c5d0 nid=26820 runnable
+9812:2026-07-14T15:02:47.373801+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+9977:2026-07-14T15:02:47.391830+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282655.55ms elapsed=1051428.53s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+9984:2026-07-14T15:02:47.391830+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+9985:2026-07-14T15:02:47.391830+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+10058:2026-07-14T15:02:47.394525+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486520281.07ms elapsed=1120599.02s tid=0x0000e51b900060b0 nid=26842 runnable
+10065:2026-07-14T15:02:47.394525+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486507762.39ms elapsed=1120599.53s tid=0x0000e51bd406c5d0 nid=26820 runnable
+10068:2026-07-14T15:03:14.259587+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+10233:2026-07-14T15:03:14.262958+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282655.63ms elapsed=1051455.42s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+10240:2026-07-14T15:03:14.263275+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+10241:2026-07-14T15:03:14.263275+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+10314:2026-07-14T15:03:14.265604+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486546072.34ms elapsed=1120625.91s tid=0x0000e51b900060b0 nid=26842 runnable
+10321:2026-07-14T15:03:14.267111+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486533196.86ms elapsed=1120626.42s tid=0x0000e51bd406c5d0 nid=26820 runnable
+10324:2026-07-14T15:03:50.950290+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+10489:2026-07-14T15:04:08.768515+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282655.78ms elapsed=1051509.92s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+10496:2026-07-14T15:04:08.768515+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+10497:2026-07-14T15:04:08.768515+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+10571:2026-07-14T15:04:08.770692+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486597868.49ms elapsed=1120680.41s tid=0x0000e51b900060b0 nid=26842 runnable
+10578:2026-07-14T15:04:08.770692+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486584489.54ms elapsed=1120680.92s tid=0x0000e51bd406c5d0 nid=26820 runnable
+10581:2026-07-14T15:04:26.487297+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+10747:2026-07-14T15:04:26.493570+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282655.83ms elapsed=1051527.64s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+10754:2026-07-14T15:04:26.493875+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+10755:2026-07-14T15:04:26.493875+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+10828:2026-07-14T15:04:26.496114+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486615031.31ms elapsed=1120698.13s tid=0x0000e51b900060b0 nid=26842 runnable
+10835:2026-07-14T15:04:26.496114+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486601805.59ms elapsed=1120698.64s tid=0x0000e51bd406c5d0 nid=26820 runnable
+10838:2026-07-14T15:04:43.952128+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+11004:2026-07-14T15:04:54.029208+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282655.93ms elapsed=1051555.18s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+11011:2026-07-14T15:04:54.029208+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+11012:2026-07-14T15:04:54.029208+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+11085:2026-07-14T15:04:54.033263+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486640449.10ms elapsed=1120725.67s tid=0x0000e51b900060b0 nid=26842 runnable
+11092:2026-07-14T15:04:54.033263+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486627450.20ms elapsed=1120726.18s tid=0x0000e51bd406c5d0 nid=26820 runnable
+11095:2026-07-14T15:05:20.496212+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+11261:2026-07-14T15:05:38.053504+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282656.08ms elapsed=1051599.20s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+11268:2026-07-14T15:05:38.053504+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+11269:2026-07-14T15:05:38.053504+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+11342:2026-07-14T15:05:38.058973+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486682885.54ms elapsed=1120769.69s tid=0x0000e51b900060b0 nid=26842 runnable
+11349:2026-07-14T15:05:38.058973+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486670105.66ms elapsed=1120770.20s tid=0x0000e51bd406c5d0 nid=26820 runnable
+11352:2026-07-14T15:06:04.229010+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+11518:2026-07-14T15:06:04.238483+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282656.15ms elapsed=1051625.39s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+11525:2026-07-14T15:06:04.238483+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+11526:2026-07-14T15:06:04.238483+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+11599:2026-07-14T15:06:04.242278+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486708655.88ms elapsed=1120795.88s tid=0x0000e51b900060b0 nid=26842 runnable
+11606:2026-07-14T15:06:04.242278+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486695334.46ms elapsed=1120796.39s tid=0x0000e51bd406c5d0 nid=26820 runnable
+11609:2026-07-14T15:06:30.327997+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+11774:2026-07-14T15:06:39.016585+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282656.27ms elapsed=1051660.16s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+11781:2026-07-14T15:06:39.016585+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+11782:2026-07-14T15:06:39.016585+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+11856:2026-07-14T15:06:39.019091+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486742585.06ms elapsed=1120830.65s tid=0x0000e51b900060b0 nid=26842 runnable
+11863:2026-07-14T15:06:39.019091+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486729274.06ms elapsed=1120831.16s tid=0x0000e51bd406c5d0 nid=26820 runnable
+11866:2026-07-14T15:07:13.896993+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+12032:2026-07-14T15:07:13.912564+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282656.37ms elapsed=1051695.05s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+12039:2026-07-14T15:07:13.912564+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+12040:2026-07-14T15:07:13.912564+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+12113:2026-07-14T15:07:13.917821+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486776403.52ms elapsed=1120865.54s tid=0x0000e51b900060b0 nid=26842 runnable
+12120:2026-07-14T15:07:13.917821+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486763534.44ms elapsed=1120866.05s tid=0x0000e51bd406c5d0 nid=26820 runnable
+12123:2026-07-14T15:07:57.904233+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+12289:2026-07-14T15:07:57.912753+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282656.53ms elapsed=1051739.06s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+12296:2026-07-14T15:07:57.912753+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+12297:2026-07-14T15:07:57.912753+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+12371:2026-07-14T15:07:57.915736+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486818762.02ms elapsed=1120909.55s tid=0x0000e51b900060b0 nid=26842 runnable
+12378:2026-07-14T15:07:57.915736+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486805997.59ms elapsed=1120910.06s tid=0x0000e51bd406c5d0 nid=26820 runnable
+12381:2026-07-14T15:09:06.351660+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+12546:2026-07-14T15:09:06.358581+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282656.77ms elapsed=1051807.51s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+12553:2026-07-14T15:09:06.358581+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+12554:2026-07-14T15:09:06.358581+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+12627:2026-07-14T15:09:06.361235+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486886698.78ms elapsed=1120978.00s tid=0x0000e51b900060b0 nid=26842 runnable
+12634:2026-07-14T15:09:06.361235+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486873955.88ms elapsed=1120978.51s tid=0x0000e51bd406c5d0 nid=26820 runnable
+12637:2026-07-14T15:09:14.919015+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+12803:2026-07-14T15:09:14.924389+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282656.79ms elapsed=1051816.07s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+12810:2026-07-14T15:09:14.924389+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+12811:2026-07-14T15:09:14.924389+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+12884:2026-07-14T15:09:14.927490+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486895205.22ms elapsed=1120986.57s tid=0x0000e51b900060b0 nid=26842 runnable
+12891:2026-07-14T15:09:14.927490+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486882462.83ms elapsed=1120987.07s tid=0x0000e51bd406c5d0 nid=26820 runnable
+12894:2026-07-14T15:09:49.030553+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+13060:2026-07-14T15:09:49.037109+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282656.89ms elapsed=1051850.19s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+13067:2026-07-14T15:09:49.037109+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+13068:2026-07-14T15:09:49.037109+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+13141:2026-07-14T15:09:49.039065+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486929043.57ms elapsed=1121020.68s tid=0x0000e51b900060b0 nid=26842 runnable
+13148:2026-07-14T15:09:49.039377+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486916340.44ms elapsed=1121021.19s tid=0x0000e51bd406c5d0 nid=26820 runnable
+13151:2026-07-14T15:10:14.786751+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+13317:2026-07-14T15:10:14.793357+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282656.97ms elapsed=1051875.94s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+13324:2026-07-14T15:10:14.793357+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+13325:2026-07-14T15:10:14.793357+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+13398:2026-07-14T15:10:14.795468+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486954612.04ms elapsed=1121046.43s tid=0x0000e51b900060b0 nid=26842 runnable
+13405:2026-07-14T15:10:14.795468+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486941851.33ms elapsed=1121046.94s tid=0x0000e51bd406c5d0 nid=26820 runnable
+13408:2026-07-14T15:10:31.958354+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+13573:2026-07-14T15:10:31.968700+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282657.04ms elapsed=1051893.11s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+13580:2026-07-14T15:10:31.968700+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+13581:2026-07-14T15:10:31.968700+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+13654:2026-07-14T15:10:31.969970+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=486971669.25ms elapsed=1121063.61s tid=0x0000e51b900060b0 nid=26842 runnable
+13661:2026-07-14T15:10:31.969970+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=486958865.12ms elapsed=1121064.11s tid=0x0000e51bd406c5d0 nid=26820 runnable
+13664:2026-07-14T15:11:23.699002+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+13830:2026-07-14T15:11:23.705895+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282657.21ms elapsed=1051944.86s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+13837:2026-07-14T15:11:23.705895+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+13838:2026-07-14T15:11:23.705895+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+13911:2026-07-14T15:11:23.709026+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=487022976.00ms elapsed=1121115.35s tid=0x0000e51b900060b0 nid=26842 runnable
+13918:2026-07-14T15:11:23.709026+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=487009932.67ms elapsed=1121115.86s tid=0x0000e51bd406c5d0 nid=26820 runnable
+13921:2026-07-14T15:11:40.810622+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+14088:2026-07-14T15:11:40.813087+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282657.28ms elapsed=1051961.97s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+14095:2026-07-14T15:11:40.813445+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+14096:2026-07-14T15:11:40.813445+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+14169:2026-07-14T15:11:40.815054+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=487039967.39ms elapsed=1121132.46s tid=0x0000e51b900060b0 nid=26842 runnable
+14176:2026-07-14T15:11:40.815427+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=487026901.64ms elapsed=1121132.97s tid=0x0000e51bd406c5d0 nid=26820 runnable
+14179:2026-07-14T15:11:59.027621+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+14345:2026-07-14T15:11:59.035771+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282657.33ms elapsed=1051980.18s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+14352:2026-07-14T15:11:59.035771+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+14353:2026-07-14T15:11:59.035771+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+14426:2026-07-14T15:11:59.039955+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=487057232.47ms elapsed=1121150.68s tid=0x0000e51b900060b0 nid=26842 runnable
+14433:2026-07-14T15:11:59.039955+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=487043688.93ms elapsed=1121151.18s tid=0x0000e51bd406c5d0 nid=26820 runnable
+14436:2026-07-14T15:12:42.023494+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+14603:2026-07-14T15:12:50.842591+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282657.49ms elapsed=1052031.99s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+14610:2026-07-14T15:12:50.842591+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+14611:2026-07-14T15:12:50.842591+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+14684:2026-07-14T15:12:50.843626+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=487108175.56ms elapsed=1121202.49s tid=0x0000e51b900060b0 nid=26842 runnable
+14691:2026-07-14T15:12:50.845039+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=487094697.29ms elapsed=1121202.99s tid=0x0000e51bd406c5d0 nid=26820 runnable
+14694:2026-07-14T15:13:16.624628+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+14860:2026-07-14T15:13:33.726947+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282657.63ms elapsed=1052074.88s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+14867:2026-07-14T15:13:33.726947+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+14868:2026-07-14T15:13:33.726947+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+14941:2026-07-14T15:13:33.731091+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=487150543.75ms elapsed=1121245.37s tid=0x0000e51b900060b0 nid=26842 runnable
+14948:2026-07-14T15:13:33.731091+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=487137192.94ms elapsed=1121245.88s tid=0x0000e51bd406c5d0 nid=26820 runnable
+14951:2026-07-14T15:13:59.740938+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+15116:2026-07-14T15:14:08.311101+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282657.77ms elapsed=1052109.46s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+15123:2026-07-14T15:14:08.311101+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+15124:2026-07-14T15:14:08.311101+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+15197:2026-07-14T15:14:08.312316+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=487184326.98ms elapsed=1121279.96s tid=0x0000e51b900060b0 nid=26842 runnable
+15204:2026-07-14T15:14:08.312316+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=487171367.96ms elapsed=1121280.46s tid=0x0000e51bd406c5d0 nid=26820 runnable
+15207:2026-07-14T15:14:34.628711+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+15374:2026-07-14T15:14:34.641482+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282657.85ms elapsed=1052135.79s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+15381:2026-07-14T15:14:34.641482+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+15382:2026-07-14T15:14:34.641482+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+15455:2026-07-14T15:14:34.645207+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=487209944.03ms elapsed=1121306.28s tid=0x0000e51b900060b0 nid=26842 runnable
+15462:2026-07-14T15:14:34.645207+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=487196803.32ms elapsed=1121306.79s tid=0x0000e51bd406c5d0 nid=26820 runnable
+15465:2026-07-14T15:14:44.122644+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+15631:2026-07-14T15:15:01.425048+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282657.93ms elapsed=1052162.57s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+15638:2026-07-14T15:15:01.426026+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+15639:2026-07-14T15:15:01.426026+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+15712:2026-07-14T15:15:01.428844+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=487235461.44ms elapsed=1121333.06s tid=0x0000e51b900060b0 nid=26842 runnable
+15719:2026-07-14T15:15:01.430604+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=487222271.73ms elapsed=1121333.57s tid=0x0000e51bd406c5d0 nid=26820 runnable
+15722:2026-07-14T15:15:18.803713+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+15888:2026-07-14T15:15:18.817017+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282657.98ms elapsed=1052179.96s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+15895:2026-07-14T15:15:18.817017+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+15896:2026-07-14T15:15:18.817017+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+15969:2026-07-14T15:15:18.818305+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=487252460.24ms elapsed=1121350.45s tid=0x0000e51b900060b0 nid=26842 runnable
+15976:2026-07-14T15:15:18.818305+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=487239290.35ms elapsed=1121350.96s tid=0x0000e51bd406c5d0 nid=26820 runnable
+15979:2026-07-14T15:15:44.666051+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+16145:2026-07-14T15:15:53.361008+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282658.11ms elapsed=1052214.51s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+16152:2026-07-14T15:15:53.361008+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+16153:2026-07-14T15:15:53.361008+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+16226:2026-07-14T15:15:53.362272+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=487286642.93ms elapsed=1121385.00s tid=0x0000e51b900060b0 nid=26842 runnable
+16233:2026-07-14T15:15:53.362272+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=487273304.59ms elapsed=1121385.51s tid=0x0000e51bd406c5d0 nid=26820 runnable
+16236:2026-07-14T15:16:28.150475+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+16402:2026-07-14T15:16:28.154147+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282658.21ms elapsed=1052249.31s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+16409:2026-07-14T15:16:28.154147+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+16410:2026-07-14T15:16:28.154147+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+16484:2026-07-14T15:16:28.155743+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=487320636.85ms elapsed=1121419.80s tid=0x0000e51b900060b0 nid=26842 runnable
+16491:2026-07-14T15:16:28.156037+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=487307380.52ms elapsed=1121420.31s tid=0x0000e51bd406c5d0 nid=26820 runnable
+16494:2026-07-14T15:17:02.376044+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+16498:2026-07-15T09:31:41.784925+00:00 orion-dev java[26810]: Exception in VM (AttachListener::init) :
+16499:2026-07-15T09:31:41.784925+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+16662:2026-07-15T09:31:50.837355+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282882.68ms elapsed=1117971.98s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+16669:2026-07-15T09:31:50.837355+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+16670:2026-07-15T09:31:50.837355+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+16743:2026-07-15T09:31:50.842658+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=552429238.62ms elapsed=1187142.48s tid=0x0000e51b900060b0 nid=26842 runnable
+16750:2026-07-15T09:31:50.842658+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=552400521.33ms elapsed=1187142.98s tid=0x0000e51bd406c5d0 nid=26820 runnable
+16753:2026-07-15T09:32:35.199665+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+16919:2026-07-15T09:32:35.205938+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282882.84ms elapsed=1118016.35s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+16926:2026-07-15T09:32:35.205938+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+16927:2026-07-15T09:32:35.205938+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+17000:2026-07-15T09:32:35.207214+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=552471946.50ms elapsed=1187186.84s tid=0x0000e51b900060b0 nid=26842 runnable
+17007:2026-07-15T09:32:35.207214+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=552443269.04ms elapsed=1187187.35s tid=0x0000e51bd406c5d0 nid=26820 runnable
+17010:2026-07-15T09:33:01.354606+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+17177:2026-07-15T09:33:18.646157+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282883.00ms elapsed=1118059.80s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+17184:2026-07-15T09:33:18.646157+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+17185:2026-07-15T09:33:18.646157+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+17258:2026-07-15T09:33:18.647561+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=552514290.58ms elapsed=1187230.29s tid=0x0000e51b900060b0 nid=26842 runnable
+17265:2026-07-15T09:33:18.647561+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=552485923.17ms elapsed=1187230.80s tid=0x0000e51bd406c5d0 nid=26820 runnable
+17268:2026-07-15T09:33:35.895185+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+17434:2026-07-15T09:33:44.551688+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282883.08ms elapsed=1118085.70s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+17441:2026-07-15T09:33:44.551688+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+17442:2026-07-15T09:33:44.551688+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+17515:2026-07-15T09:33:44.552989+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=552539758.51ms elapsed=1187256.19s tid=0x0000e51b900060b0 nid=26842 runnable
+17522:2026-07-15T09:33:44.552989+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=552511542.40ms elapsed=1187256.70s tid=0x0000e51bd406c5d0 nid=26820 runnable
+17525:2026-07-15T09:34:27.562932+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+17690:2026-07-15T09:34:44.740909+00:00 orion-dev java[26810]: "BUY-THREAD" #31 [36613] daemon prio=5 os_prio=0 cpu=282883.29ms elapsed=1118145.89s tid=0x0000e51bac00b5b0 nid=36613 waiting on condition  [0x0000e51b77806000]
+17697:2026-07-15T09:34:44.740909+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine.lambda$start$0(TradingEngine.java:73)
+17698:2026-07-15T09:34:44.740909+00:00 orion-dev java[26810]:         at com.binance.trading.engine.TradingEngine$$Lambda/0x000000b8011220d0.run(Unknown Source)
+17771:2026-07-15T09:34:44.743366+00:00 orion-dev java[26810]: "GC Thread#1" os_prio=0 cpu=552599208.97ms elapsed=1187316.38s tid=0x0000e51b900060b0 nid=26842 runnable
+17778:2026-07-15T09:34:44.743366+00:00 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=552571071.08ms elapsed=1187316.89s tid=0x0000e51bd406c5d0 nid=26820 runnable
+17781:2026-07-15T09:35:01.900140+00:00 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)

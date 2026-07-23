@@ -1,0 +1,13 @@
+25:2026-07-08T22:57:49.981748+00:00 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "idle-timeout-task"
+26:2026-07-08T22:58:49.603439+00:00 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "mysql-cj-abandoned-connection-cleanup"
+27:2026-07-08T22:59:23.744749+00:00 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "SELL-THREAD"
+28:2026-07-08T23:00:14.971585+00:00 orion-dev java[26810]: Exception: java.lang.OutOfMemoryError thrown from the UncaughtExceptionHandler in thread "HTTP-Dispatcher"
+30:2026-07-09T17:50:02.549641+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+32:2026-07-09T17:51:05.697149+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+4149:2026-07-13T15:31:08.835940+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+4665:2026-07-13T15:32:19.932146+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+4667:2026-07-13T15:32:28.984671+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+9555:2026-07-14T15:02:02.372901+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+9557:2026-07-14T15:02:20.050037+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+9559:2026-07-14T15:02:29.102304+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
+16499:2026-07-15T09:31:41.784925+00:00 orion-dev java[26810]: java.lang.OutOfMemoryError: Java heap space
