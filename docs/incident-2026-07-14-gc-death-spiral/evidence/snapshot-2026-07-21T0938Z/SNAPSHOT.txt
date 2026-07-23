@@ -1,0 +1,33 @@
+CAPTURE_UTC=2026-07-21T09:38:32Z
+HOSTNAME=orion-dev
+PRESERVE_POLICY=no_kill_no_restart_no_heapdump_force
+PID=26810
+    PID    PPID USER     %CPU %MEM   RSS    VSZ     ELAPSED                  STARTED CMD
+  26810       1 ubuntu    125 26.3 3220928 5756544 19-17:52:25 Wed Jul  1 15:46:07 2026 /usr/bin/java -jar /home/ubuntu/qa/trading-engine-simulator/target/trading-engine-simulator-1.0.0.jar
+--- systemctl ---
+● binance-trading-engine.service - Binance Trading Engine Simulator (Port 8092/8093)
+     Loaded: loaded (/etc/systemd/system/binance-trading-engine.service; enabled; preset: enabled)
+     Active: active (running) since Wed 2026-07-01 15:46:07 UTC; 2 weeks 5 days ago
+   Main PID: 26810 (java)
+      Tasks: 33 (limit: 14192)
+     Memory: 3.0G (peak: 3.0G)
+        CPU: 3w 3d 17h 24min 27.108s
+     CGroup: /system.slice/binance-trading-engine.service
+             └─26810 /usr/bin/java -jar /home/ubuntu/qa/trading-engine-simulator/target/trading-engine-simulator-1.0.0.jar
+
+Jul 15 09:34:44 orion-dev java[26810]: "G1 Refine#0" os_prio=0 cpu=49380.71ms elapsed=1187316.89s tid=0x0000e51bd40c1ba0 nid=26824 runnable
+Jul 15 09:34:44 orion-dev java[26810]: "G1 Conc#0" os_prio=0 cpu=421554.40ms elapsed=1187316.89s tid=0x0000e51bd407a460 nid=26822 runnable
+Jul 15 09:34:44 orion-dev java[26810]: "G1 Main Marker" os_prio=0 cpu=764.93ms elapsed=1187316.89s tid=0x0000e51bd40794a0 nid=26821 runnable
+Jul 15 09:34:44 orion-dev java[26810]: "GC Thread#0" os_prio=0 cpu=552571071.08ms elapsed=1187316.89s tid=0x0000e51bd406c5d0 nid=26820 runnable
+Jul 15 09:34:44 orion-dev java[26810]: JNI global refs: 15, weak refs: 0
+Jul 15 09:35:01 orion-dev java[26810]: Heap
+Jul 15 09:35:01 orion-dev java[26810]:  garbage-first heap   total 3053568K, used 3051505K [0x0000000745a00000, 0x0000000800000000)
+Jul 15 09:35:01 orion-dev java[26810]:   region size 2048K, 0 young (0K), 0 survivors (0K)
+Jul 15 09:35:01 orion-dev java[26810]:  Metaspace       used 13317K, committed 13568K, reserved 1114112K
+Jul 15 09:35:01 orion-dev java[26810]:   class space    used 1291K, committed 1408K, reserved 1048576K
+--- free ---
+               total        used        free      shared  buff/cache   available
+Mem:            11Gi       5.2Gi       437Mi       5.4Mi       6.2Gi       6.4Gi
+Swap:             0B          0B          0B
+--- load ---
+ 09:38:32 up 21 days, 0 min,  5 users,  load average: 2.10, 2.21, 2.13

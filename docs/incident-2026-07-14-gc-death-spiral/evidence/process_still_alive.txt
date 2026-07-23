@@ -1,0 +1,2 @@
+    PID %CPU   RSS     ELAPSED CMD
+  26810 87.1 3221444 12-23:17:35 /usr/bin/java -jar /home/ubuntu/qa/trading-engine-simulator/target/trading-engine-simulator-1.0.0.jar

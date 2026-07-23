@@ -1,0 +1,12 @@
+=== HOST ===
+Linux orion-dev 6.17.0-1018-oracle #18~24.04.1-Ubuntu SMP Mon Jun 22 18:23:57 UTC 2026 aarch64 aarch64 aarch64 GNU/Linux
+2
+               total        used        free      shared  buff/cache   available
+Mem:            11Gi       4.4Gi       1.6Gi       5.3Mi       5.9Gi       7.2Gi
+Swap:             0B          0B          0B
+ 15:01:22 up 14 days,  5:23,  2 users,  load average: 2.03, 2.04, 2.00
+=== PROCESS ===
+    PID    PPID USER     %CPU %MEM    VSZ   RSS     ELAPSED                  STARTED STAT CMD
+  26810       1 ubuntu   87.1 26.3 5756544 3221444 12-23:15:14 Wed Jul  1 15:46:07 2026 Ssl /usr/bin/java -jar /home/ubuntu/qa/trading-engine-simulator/target/trading-engine-simulator-1.0.0.jar
+=== /proc status ===
+=== smaps_rollup ===

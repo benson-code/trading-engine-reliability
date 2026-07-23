@@ -1,0 +1,1 @@
+/usr/bin/java -jar /home/ubuntu/qa/trading-engine-simulator/target/trading-engine-simulator-1.0.0.jar 
