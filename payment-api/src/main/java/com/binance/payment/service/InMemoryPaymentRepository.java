@@ -65,12 +65,24 @@ public class InMemoryPaymentRepository implements PaymentRepository {
 
     private final Object keyEvictionLock = new Object();
 
-    // BOUNDED-BY: account state, one entry per user ever seen. Deliberately NOT evicted —
-    // dropping an entry would silently reset a balance to DEFAULT_BALANCE, i.e. invent money.
-    // Growth is bounded by account count, which is a business quantity, not by request volume.
+    // BOUNDED-BY: nothing, honestly — this is a NOT-evicted decision, not a bounded one, and
+    // the distinction matters enough to state plainly rather than let the declaration imply
+    // safety it does not have.
+    //
+    // Eviction is refused because dropping an entry resets that user's balance to
+    // DEFAULT_BALANCE on the next read, i.e. invents money. Losing the bound is the lesser
+    // harm in a demo repository; losing the money is not.
+    //
+    // Growth is one entry per distinct userId ever seen, and `deductBalance` uses compute(),
+    // which auto-provisions on first sight — so a client that supplies fresh userIds grows this
+    // map with request volume. Bounding it needs an account lifecycle (registration, closure)
+    // that this class does not model. JdbcPaymentRepository, the durable path, holds accounts
+    // in a table with a strict foreign key and does not have this shape.
     private final ConcurrentHashMap<String, BigDecimal>      balances         = new ConcurrentHashMap<>();
 
-    // BOUNDED-BY: account state, paired 1:1 with `balances`. Not evicted, for the same reason.
+    // BOUNDED-BY: seeded accounts only — unlike `balances`, nothing auto-provisions here;
+    // getCurrency() reads through a default without writing, so this grows solely via
+    // seedAccount(). Not evicted, for the same reason `balances` is not.
     private final ConcurrentHashMap<String, String>          currencies       = new ConcurrentHashMap<>();
 
     private final AtomicLong sequence = new AtomicLong(1);
