@@ -192,8 +192,13 @@ public class PaymentApiServer {
         // Register the job and schedule async settlement (only on first create).
         boolean[] registered = { false };
         jobs.computeIfAbsent(resp.getJobId(), jid -> {
+            // computeIfPresent, not put: settlement may land after this job has been evicted,
+            // and a create-or-update write would put back an id the deque no longer holds —
+            // which nothing could ever evict again. Settling an aged-out job is a no-op, which
+            // is already the contract: polling it returns 404, same as an unknown jobId.
             settler.schedule(
-                    () -> jobs.put(jid, new Job(resp.getPaymentId(), "SUCCESS")),
+                    () -> jobs.computeIfPresent(jid,
+                            (id, pending) -> new Job(resp.getPaymentId(), "SUCCESS")),
                     settleDelayMs, TimeUnit.MILLISECONDS);
             registered[0] = true;
             return new Job(resp.getPaymentId(), "PENDING");
@@ -218,6 +223,18 @@ public class PaymentApiServer {
                 jobs.remove(jobInsertionOrder.removeFirst());
             }
         }
+    }
+
+    /**
+     * Entries actually held in {@code jobs}.
+     *
+     * <p>Distinct from {@link #retainedJobCount()} on purpose. That one measures the deque,
+     * which stays at the cap by construction and so cannot observe a {@code jobs} entry that
+     * exists without a matching deque record. The bound is only real if this number is capped
+     * too, so this is what an endurance test has to assert on.
+     */
+    int liveJobCount() {
+        return jobs.size();
     }
 
     /** Jobs currently retained. Never exceeds the configured job retention. */
