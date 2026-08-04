@@ -95,3 +95,22 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8092
           NEXT_PUBLIC_WS_URL: ws://localhost:8093
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # Endurance, not functional: drives 40k orders through the hook and asserts that
+      # retained memory did not grow with them. Functional tests cannot see this defect
+      # class — 84 of them stayed green through the 2026-07 incident.
+      # The suite builds into .next-e2e on its own port, so it does not disturb the
+      # build above.
+      - name: Mobile-web endurance tests (Pixel 7)
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: trading-engine-ui/playwright-report/
+          retention-days: 14
