@@ -1,5 +1,13 @@
 node_modules/
 .next/
+
+# Playwright: e2e build dir (kept separate from .next so a test run cannot
+# clobber a dev server's cache) and run artifacts
+.next-e2e/
+test-results/
+playwright-report/
+blob-report/
+
 .env.local
 .env*.local
 .DS_Store
