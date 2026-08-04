@@ -11,15 +11,18 @@ const MAX_ORDERS       = 100;
 const MAX_KLINES       = 500;
 
 export function useTradingEngine() {
+  // BOUNDED-BY: setOrders slices to MAX_ORDERS on every message
   const [orders,       setOrders]       = useState<Order[]>([]);
   const [stats,        setStats]        = useState<EngineStats | null>(null);
+  // BOUNDED-BY: setKlines keeps only the last MAX_KLINES buckets on every message
   const [klines,       setKlines]       = useState<KLine[]>([]);
   const [lastCandle,   setLastCandle]   = useState<KLine | null>(null);
   const [isConnected,  setIsConnected]  = useState(false);
   const [isRunning,    setIsRunning]    = useState(false);
-  const [seenIds,      setSeenIds]      = useState<Set<string>>(new Set());
 
   const wsRef           = useRef<WebSocket | null>(null);
+  // BOUNDED-BY: addToKline evicts the oldest bucket past MAX_KLINES, so this holds no
+  // more entries than the klines array it feeds
   const klineMap        = useRef<Map<number, KLine>>(new Map());
   const reconnectDelay  = useRef(1000);   // BUG-09: exponential backoff state
   const reconnectTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,6 +43,18 @@ export function useTradingEngine() {
       : { time: bucketSec, open: price, high: price, low: price, close: price, volume: vol };
 
     klineMap.current.set(bucketSec, candle);
+
+    // Evict in insertion order so the map cannot outgrow the window it feeds. Buckets
+    // arrive in increasing time order, so the first key is the oldest. A bucket that is
+    // evicted and then receives a late order would start a fresh candle instead of
+    // continuing the old one; at MAX_KLINES that is 2,500 s of history, far beyond any
+    // plausible arrival delay.
+    while (klineMap.current.size > MAX_KLINES) {
+      const oldest = klineMap.current.keys().next().value;
+      if (oldest === undefined) break;
+      klineMap.current.delete(oldest);
+    }
+
     setLastCandle(candle);
     setKlines(prev => {
       const idx = prev.findIndex(k => k.time === bucketSec);
@@ -82,7 +97,6 @@ export function useTradingEngine() {
         if (msg.type === 'ORDER_CREATED') {
           const order = msg.data as Order;
           setOrders(prev => [order, ...prev].slice(0, MAX_ORDERS));
-          setSeenIds(prev => new Set(prev).add(order.order_id));
           addToKline(order);
         } else if (msg.type === 'STATS_UPDATE') {
           const s = msg.data as EngineStats;
@@ -146,7 +160,7 @@ export function useTradingEngine() {
 
   return {
     orders, stats, klines, lastCandle,
-    isConnected, isRunning, seenIds,
+    isConnected, isRunning,
     startEngine, stopEngine, isDuplicate,
   };
 }
