@@ -7,6 +7,10 @@ target/
 
 # Next.js
 trading-engine-ui/.next/
+trading-engine-ui/.next-e2e/
+trading-engine-ui/test-results/
+trading-engine-ui/playwright-report/
+trading-engine-ui/blob-report/
 trading-engine-ui/out/
 trading-engine-ui/node_modules/
 trading-engine-ui/.env.local
