@@ -69,6 +69,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Same contract as the Java gate, applied to the frontend: every long-lived collection
+      # must state why it cannot grow without bound. Stricter than the Java version — it infers
+      # no eviction at all, because a .slice() elsewhere in the file would otherwise mask the
+      # very defects this gate exists to catch.
+      # See docs/checklists/resource-safety-zh-TW.md
+      - name: Bounded-collections check (TypeScript)
+        run: ../tools/check-bounded-collections-ts.sh .
+
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
