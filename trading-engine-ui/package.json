@@ -5,21 +5,24 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
-    "start": "next start -H 0.0.0.0 -p 3000"
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright show-report --host 0.0.0.0 --port 9323"
   },
   "dependencies": {
+    "lightweight-charts": "4.2.1",
     "next": "15.3.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "lightweight-charts": "4.2.1"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.0",
     "postcss": "^8.4.0",
-    "autoprefixer": "^10.4.0"
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.0.0"
   }
 }
