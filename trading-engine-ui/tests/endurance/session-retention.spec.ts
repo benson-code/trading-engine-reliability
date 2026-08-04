@@ -38,7 +38,11 @@ const ORDER_INTERVAL_MS = 50;
  * klines — so 30k additional orders should add essentially nothing, and growth sits in GC
  * jitter. Measured against the unbounded hook, the same span adds ~2.1 MB (~71 bytes per
  * order retained forever). 1 MB sits between the two with roughly 2x margin on the
- * defect side.
+ * defect side and 2.6x on the bounded side.
+ *
+ * The bounded run still moves 401 KB. That is consistent with the klines window filling
+ * toward its 500-bucket cap — 40k orders at 50 ms spans about 400 buckets — which is
+ * growth toward a bound rather than retention past one.
  *
  * Heap is the assertion rather than elapsed time deliberately — see the note on TIMING
  * below.
