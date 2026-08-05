@@ -18,7 +18,8 @@
 - **併發是「測出來」的，不是嘴上講講** —— 16 條執行緒拿同一個 idempotency key 去打 `createPayment`；測試（[`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)）在**兩種** repository 實作上都驗證了：就是扣一次、就是只有一個 `payment_id`。
 - **不搞 WireMock 那套假把戲** —— 每一個 API 跟整合測試都是透過內嵌 HTTP server 去打**真正的** `PaymentService`，而不是 mock 出來的替身，所以測試全綠就代表服務本身真的跑得動（[commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4) 就是從 mock 遷移到真實服務的過程）。
 - **支付等級的輸入跟權限把關** —— 幣別一定要跟帳戶一致（`422`）；金額精度卡在 `DECIMAL(18,8)`（`400 INVALID_PRECISION`，不會偷偷截斷）；支付端點只要有設定，就一定要帶 `X-API-Key`（用常數時間比較，constant-time）（[`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)）。
-- **品質靠 CI 強制把關** —— CI 一次跑 98 個測試 · `main` 上了連 admin 都擋不掉的分支保護 · 只能走 PR · 兩個必過的檢查一定要全綠 · 用 rebase-merge 保留 P1/P2/P3 的 commit 故事線。
+- **把弄垮後端的那類缺陷，也拿去測前端** —— `useTradingEngine` 有兩個只進不出的集合，其中一個每收到一則訊息就把自己整份複製一次。Pixel 7 的耐久測試灌 4 萬筆訂單（大約 33 分鐘的 session），然後驗證 retained heap 沒有跟著長大：**約 2,070 KB → 401 KB**，每批耗時的首末比也從 2.27x 拉平到 0.98x（[`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)）。
+- **品質靠 CI 強制把關** —— CI 一次跑 98 個 Java 測試，外加一套 mobile-web 耐久測試 · 一道宣告式的 `BOUNDED-BY` 閘，任何長生命週期集合只要沒有淘汰機制、又沒寫明為什麼不會無限成長，就直接擋下來 · `main` 上了連 admin 都擋不掉的分支保護 · 只能走 PR · 兩個必過的檢查一定要全綠 · 用 rebase-merge 保留 P1/P2/P3 的 commit 故事線。
 
 ---
 
@@ -28,7 +29,7 @@
 binance-qa-suite/                  ← Monorepo 根目錄（Maven parent POM）
 ├── payment-api/                   ← 模組 1：可執行的支付 API + QA 測試（Java 17, 43 tests）
 ├── trading-engine-simulator/      ← 模組 2：BTC 交易引擎（Java 17, CI 55 tests / 含 MySQL 63 tests）
-└── trading-engine-ui/             ← 模組 3：即時儀表板（Next.js 15）
+└── trading-engine-ui/             ← 模組 3：即時儀表板（Next.js 15）+ mobile-web 耐久測試
 ```
 
 **一行指令跑完全部 98 個 Java 測試：**
@@ -319,6 +320,8 @@ CREATE TABLE orders (
 | BUG-09 | useTradingEngine.ts | WS 斷線後不重連 | 指數退避（1s→30s） |
 | BUG-10 | useTradingEngine.ts | O(n²) 重複偵測 | `useMemo` 預先計算 `Set`，O(1) 查找 |
 | BUG-11 | OrderBook | `getAllOrders()` 未加鎖迭代 `synchronizedList` → 間歇性 `ConcurrentModificationException` | `synchronized (allOrders) { return new ArrayList<>(allOrders); }` |
+| BUG-12 | useTradingEngine.ts | `seenIds` 在分頁的整個生命週期只增不減，而且每則訊息都重建一次（`new Set(prev).add(id)`）—— 一個 O(n) 的複製，結果卻沒有任何人讀 | 直接刪掉；重複標示本來就是從有上限的 `orders` 陣列推導出來的 |
+| BUG-13 | useTradingEngine.ts | `klineMap` 從來不刪任何一個桶，但它餵養的 `klines` 陣列卻有 `MAX_KLINES` 上限 | 超過 `MAX_KLINES` 就依插入序淘汰，不會長得比自己的消費者還大 |
 
 ---
 
@@ -333,6 +336,33 @@ CREATE TABLE orders (
 - 引擎統計面板（BUY/SELL 計數、cache 命中率、重複數）
 - 執行緒監看（BUY/SELL 執行緒活動）
 - WebSocket 以指數退避自動重連
+
+### 測試
+
+功能測試沒有時間軸 —— 這正是 2026-07 GC 死亡螺旋期間，84 個功能測試全程都是綠的原因。這個模組把時間軸補到前端來。
+
+| 層 | 檢查什麼 | 什麼時候跑 |
+|---|---|---|
+| [`check-bounded-collections-ts.sh`](tools/check-bounded-collections-ts.sh) | 每一個 `useState` / `useRef` / 模組層級的集合，不是有淘汰機制，就是要掛上 `// BOUNDED-BY: <理由>` | CI，在 `npm ci` 之前 —— 它不需要任何相依套件 |
+| [`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts) | Pixel 7 模擬下灌 4 萬筆訂單（約 33 分鐘 session），驗證**強制 GC 之後**的 retained heap 沒有跟著長 | CI，build 之後 |
+
+```bash
+cd trading-engine-ui
+npx playwright install chromium
+npm run test:e2e          # 建置到 .next-e2e，跑在 :3100
+npm run test:e2e:report   # HTML 報告 + Trace Viewer，開在 :9323
+```
+
+4 萬筆訂單下量到的數字：
+
+| | retained 成長 | 每批耗時 | 首末比 |
+|---|---|---|---|
+| 修復前 | 約 2,070 KB | 2896 → 6573 ms | 2.27x |
+| 修復後 | **401 KB** | 2139 → 2097 ms | **0.98x** |
+
+> **邊界講清楚，不要讓人自己猜。** Pixel 7 模擬是「帶著手機 viewport、DPR 跟 user agent 的 Chromium」，不是手機。JS heap 跟主執行緒成本可以外推到 Android Chrome，因為那是同一個引擎；但 GPU 合成、熱節流、OS 層級的記憶體壓力都不行。
+>
+> 耗時有量，但**刻意不拿來斷言**：同樣的情境在閒置機器上跑兩次，首末比一次 1.64x、一次 2.12x，這個離散度比要偵測的效應本身還大。retained heap 三次量下來只差約 7%，所以閘設在那裡 —— **門檻落在雜訊帶裡面，測到的是 CI 排程器，不是你的程式碼。**
 
 ### 如何執行
 
@@ -358,6 +388,7 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 | Tailwind CSS | 樣式 |
 | TradingView Lightweight Charts | K 線圖 |
 | WebSocket | 即時訂單串流 |
+| Playwright | mobile-web 耐久測試（Pixel 7 模擬、CDP 量 heap） |
 
 ---
 
@@ -392,3 +423,4 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 | Next.js 15 | 前端框架 |
 | TypeScript | 前端型別安全 |
 | Tailwind CSS | UI 樣式 |
+| Playwright | mobile-web e2e 與耐久測試 |
