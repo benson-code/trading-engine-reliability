@@ -18,7 +18,8 @@ This repo turns that hard-won instinct into **executable proof at the DB layer**
 - **Concurrency proven, not asserted** — 16 threads call `createPayment` with the same idempotency key; the test ([`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)) asserts exactly-one debit and one `payment_id` on **both** repository implementations.
 - **No WireMock theatre** — every API and integration test exercises the real `PaymentService` through an embedded HTTP server, not a mocked stand-in, so a green suite means the actual service behaves ([commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4) shows the mock-to-real migration).
 - **Payment-grade input & access control** — currency must match the account (`422`), amount precision is bounded to `DECIMAL(18,8)` (`400 INVALID_PRECISION`, no silent truncation), and the payment endpoints require an `X-API-Key` (constant-time compared) when configured ([`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)).
-- **CI-enforced quality** — 98 tests in CI · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
+- **The frontend is tested for the defect class that took the backend down** — `useTradingEngine` held two collections that only ever grew, one of them copying itself on every message. A Pixel 7 endurance test drives 40k orders — roughly 33 minutes of session — and asserts retained heap did not grow with them: **~2,070 KB → 401 KB**, with per-batch time flattening from 2.27x to 0.98x ([`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)).
+- **CI-enforced quality** — 98 Java tests plus a mobile-web endurance suite · a declarative `BOUNDED-BY` gate that fails any long-lived collection with no eviction and no stated reason it cannot grow · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
 
 ---
 
@@ -28,7 +29,7 @@ This repo turns that hard-won instinct into **executable proof at the DB layer**
 binance-qa-suite/                  ← Monorepo root (Maven parent POM)
 ├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 43 tests)
 ├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 55 tests in CI / 63 with MySQL)
-└── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15)
+└── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15) + mobile-web endurance test
 ```
 
 **One command runs all 98 Java tests:**
@@ -323,6 +324,8 @@ CREATE TABLE orders (
 | BUG-09 | useTradingEngine.ts | No reconnect on WS disconnect | Exponential backoff (1s→30s) |
 | BUG-10 | useTradingEngine.ts | O(n²) duplicate detection | `useMemo` pre-computed `Set`, O(1) lookup |
 | BUG-11 | OrderBook | `getAllOrders()` iterates `synchronizedList` without lock → intermittent `ConcurrentModificationException` | `synchronized (allOrders) { return new ArrayList<>(allOrders); }` |
+| BUG-12 | useTradingEngine.ts | `seenIds` grew for the lifetime of the tab and was rebuilt on every message (`new Set(prev).add(id)`) — an O(n) copy whose result nothing read | Deleted; duplicate highlighting already derives from the capped `orders` array |
+| BUG-13 | useTradingEngine.ts | `klineMap` never deleted a bucket, while the `klines` array it feeds was capped at `MAX_KLINES` | Evicts in insertion order past `MAX_KLINES`, so it cannot outgrow its own consumer |
 
 ---
 
@@ -337,6 +340,40 @@ Real-time Binance-styled trading dashboard connecting to Module 2 via WebSocket.
 - Engine stats panel (BUY/SELL counts, cache hit rate, duplicates)
 - Thread monitor (BUY/SELL thread activity)
 - WebSocket auto-reconnect with exponential backoff
+
+### Testing
+
+Functional tests have no time axis — which is why 84 of them stayed green throughout the
+2026-07 GC death spiral. This module adds that axis to the frontend.
+
+| Layer | What it checks | When it runs |
+|---|---|---|
+| [`check-bounded-collections-ts.sh`](tools/check-bounded-collections-ts.sh) | Every `useState` / `useRef` / module-level collection must evict or carry `// BOUNDED-BY: <reason>` | CI, before `npm ci` — it needs no dependencies |
+| [`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts) | 40k orders (~33 min of session) under Pixel 7 emulation; asserts retained heap **after forced GC** did not grow with them | CI, after the build |
+
+```bash
+cd trading-engine-ui
+npx playwright install chromium
+npm run test:e2e          # builds into .next-e2e, serves on :3100
+npm run test:e2e:report   # HTML report + trace viewer on :9323
+```
+
+What the numbers were, across 40k orders:
+
+| | retained growth | per-batch time | ratio |
+|---|---|---|---|
+| before | ~2,070 KB | 2896 → 6573 ms | 2.27x |
+| after | **401 KB** | 2139 → 2097 ms | **0.98x** |
+
+> **Scope, stated rather than implied.** Pixel 7 emulation is Chromium with a phone's
+> viewport, DPR and user agent — not a phone. JS heap and main-thread cost carry over to
+> Android Chrome because it is the same engine; GPU compositing, thermal throttling and
+> OS-level memory pressure do not.
+>
+> Elapsed time is recorded but deliberately **not** asserted: identical runs on an idle
+> box gave first-to-last ratios of 1.64x and 2.12x, a spread wider than the effect being
+> measured. Retained heap varied ~7% across three runs, so the gate sits there instead —
+> a threshold inside the noise band tests the CI scheduler, not the code.
 
 ### How to Run
 
@@ -362,6 +399,7 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 | Tailwind CSS | Styling |
 | TradingView Lightweight Charts | Candlestick chart |
 | WebSocket | Real-time order stream |
+| Playwright | Mobile-web endurance testing (Pixel 7 emulation, CDP heap measurement) |
 
 ---
 
@@ -396,3 +434,4 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 | Next.js 15 | Frontend framework |
 | TypeScript | Frontend type safety |
 | Tailwind CSS | UI styling |
+| Playwright | Mobile-web e2e & endurance testing |
