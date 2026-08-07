@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 /**
  * Endurance — the time axis that functional tests do not have.
  *
- * The 2026-07 incident ran 84 functional tests green while the backend accumulated
+ * The 2026-07 incident ran the whole functional suite green while the backend accumulated
  * 11.36M unreclaimable Order objects. Functional tests execute in milliseconds against a
  * handful of rows; at that scale a bounded and an unbounded collection are
  * indistinguishable, because both answer every functional question correctly. The defect

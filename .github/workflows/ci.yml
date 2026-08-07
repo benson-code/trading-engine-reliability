@@ -101,7 +101,7 @@ jobs:
 
       # Endurance, not functional: drives 40k orders through the hook and asserts that
       # retained memory did not grow with them. Functional tests cannot see this defect
-      # class — 84 of them stayed green through the 2026-07 incident.
+      # class — the whole suite stayed green through the 2026-07 incident.
       # The suite builds into .next-e2e on its own port, so it does not disturb the
       # build above.
       - name: Mobile-web endurance tests (Pixel 7)
