@@ -19,7 +19,7 @@
 - **不搞 WireMock 那套假把戲** —— 每一個 API 跟整合測試都是透過內嵌 HTTP server 去打**真正的** `PaymentService`，而不是 mock 出來的替身，所以測試全綠就代表服務本身真的跑得動（[commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4) 就是從 mock 遷移到真實服務的過程）。
 - **支付等級的輸入跟權限把關** —— 幣別一定要跟帳戶一致（`422`）；金額精度卡在 `DECIMAL(18,8)`（`400 INVALID_PRECISION`，不會偷偷截斷）；支付端點只要有設定，就一定要帶 `X-API-Key`（用常數時間比較，constant-time）（[`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)）。
 - **把弄垮後端的那類缺陷，也拿去測前端** —— `useTradingEngine` 有兩個只進不出的集合，其中一個每收到一則訊息就把自己整份複製一次。Pixel 7 的耐久測試灌 4 萬筆訂單（大約 33 分鐘的 session），然後驗證 retained heap 沒有跟著長大：**約 2,070 KB → 401 KB**，每批耗時的首末比也從 2.27x 拉平到 0.98x（[`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)）。
-- **品質靠 CI 強制把關** —— CI 一次跑 98 個 Java 測試，外加一套 mobile-web 耐久測試 · 一道宣告式的 `BOUNDED-BY` 閘，任何長生命週期集合只要沒有淘汰機制、又沒寫明為什麼不會無限成長，就直接擋下來 · `main` 上了連 admin 都擋不掉的分支保護 · 只能走 PR · 兩個必過的檢查一定要全綠 · 用 rebase-merge 保留 P1/P2/P3 的 commit 故事線。
+- **品質靠 CI 強制把關** —— CI 一次跑 104 個 Java 測試，外加一套 mobile-web 耐久測試 · 一道宣告式的 `BOUNDED-BY` 閘，任何長生命週期集合只要沒有淘汰機制、又沒寫明為什麼不會無限成長，就直接擋下來 · `main` 上了連 admin 都擋不掉的分支保護 · 只能走 PR · 兩個必過的檢查一定要全綠 · 用 rebase-merge 保留 P1/P2/P3 的 commit 故事線。
 
 ---
 
@@ -27,12 +27,12 @@
 
 ```
 binance-qa-suite/                  ← Monorepo 根目錄（Maven parent POM）
-├── payment-api/                   ← 模組 1：可執行的支付 API + QA 測試（Java 17, 43 tests）
-├── trading-engine-simulator/      ← 模組 2：BTC 交易引擎（Java 17, CI 55 tests / 含 MySQL 63 tests）
+├── payment-api/                   ← 模組 1：可執行的支付 API + QA 測試（Java 17, 46 tests）
+├── trading-engine-simulator/      ← 模組 2：BTC 交易引擎（Java 17, CI 58 tests / 含 MySQL 66 tests）
 └── trading-engine-ui/             ← 模組 3：即時儀表板（Next.js 15）+ mobile-web 耐久測試
 ```
 
-**一行指令跑完全部 98 個 Java 測試：**
+**一行指令跑完全部 104 個 Java 測試：**
 ```bash
 mvn test   # 依序執行 payment-api + trading-engine-simulator
 ```
@@ -57,8 +57,9 @@ mvn test -pl trading-engine-simulator -Dgroups=db-validation
 | DB 測試 | 真實 JDBC repo：ACID rollback、嚴格帳戶、idempotency 約束 | JDBC, H2（MySQL 模式） |
 | 整合 / E2E | 對真實服務做完整流程 + 非同步結算 | RestAssured, 內嵌 JDK HTTP server |
 | 併發 | N 執行緒 idempotency 競賽 → 剛好扣一次 | ExecutorService, 兩種 repo |
+| 耐久 | 長時間執行下，job 與 idempotency 儲存都維持有上限 | JUnit 5，直接檢查儲存內容 |
 
-**總計：43 個測試案例**（16 個單元/API/idempotency 基線 + 5 個真實服務 E2E + 6 個 JDBC ACID 與負向路徑 + 3 個欄位長度與 HTTP 狀態碼準確性 + 4 個幣別相符 + 4 個金額精度 + 5 個 API-key 認證）
+**總計：46 個測試案例**（16 個單元/API/idempotency 基線 + 5 個真實服務 E2E + 6 個 JDBC ACID 與負向路徑 + 3 個欄位長度與 HTTP 狀態碼準確性 + 4 個幣別相符 + 4 個金額精度 + 5 個 API-key 認證 + 3 個耐久/滯留）
 
 > 所有 API、整合跟併發測試，都是透過內嵌 HTTP server 去打真正的
 > `PaymentService` —— 完全沒用 WireMock。
@@ -93,20 +94,24 @@ payment-api/
     │   │   ├── PaymentRequest.java
     │   │   └── PaymentResponse.java
     │   └── service/
-    │       ├── PaymentRepository.java          （介面 — 抽換接縫）
-    │       ├── InMemoryPaymentRepository.java  ← 可執行實作（P1）
-    │       ├── JdbcPaymentRepository.java      ← 真實 ACID 實作（P3）
+    │       ├── PaymentRepository.java             （介面 — 抽換接縫）
+    │       ├── InMemoryPaymentRepository.java     ← 可執行實作（P1）
+    │       ├── JdbcPaymentRepository.java         ← 真實 ACID 實作（P3）
+    │       ├── CurrencyMismatchException.java     ← 觸發 422
+    │       ├── InsufficientBalanceException.java  ← 觸發 402
     │       └── PaymentService.java
     └── test/java/com/binance/payment/
         ├── unit/PaymentServiceTest.java
         ├── api/
         │   ├── PaymentAPITest.java
         │   ├── IdempotencyTest.java
-        │   └── PaymentServiceE2ETest.java      ← 對真實 server 的 E2E
+        │   ├── PaymentServiceE2ETest.java      ← 對真實 server 的 E2E
+        │   └── JobRetentionEnduranceTest.java  ← 結算不得復活已淘汰的 job
         ├── db/
         │   ├── BalanceVerificationTest.java
         │   └── JdbcPaymentRepositoryTest.java  ← 嚴格帳戶 + ACID（P3）
         ├── concurrency/ConcurrentIdempotencyTest.java  ← N 執行緒競賽（P3）
+        ├── endurance/PaymentRetentionTest.java ← idempotency 儲存維持有上限
         ├── integration/PaymentFlowTest.java
         └── util/DatabaseUtil.java
 ```
@@ -182,7 +187,7 @@ CREATE TABLE payments (
 ### 如何執行
 
 ```bash
-# 從 repo 根目錄 — 跑完全部 98 個測試（兩個模組）
+# 從 repo 根目錄 — 跑完全部 104 個測試（兩個模組）
 mvn test
 
 # 只跑支付模組
@@ -210,7 +215,7 @@ open payment-api/target/site/allure-maven-plugin/index.html
 
 ## 模組 2 — 交易引擎模擬器
 
-一個 BTC/USDT 交易引擎，用 55 個自動化測試、MySQL 持久化跟即時 WebSocket 串流，把 4 種 LeetCode 演算法模式實際跑給你看。
+一個 BTC/USDT 交易引擎，用 58 個自動化測試、MySQL 持久化跟即時 WebSocket 串流，把 4 種 LeetCode 演算法模式實際跑給你看。
 
 ### 實作的 LeetCode 模式
 
@@ -224,19 +229,29 @@ open payment-api/target/site/allure-maven-plugin/index.html
 ### 測試結果
 
 ```
-# CI（無 MySQL）：
-Tests run: 55, Failures: 0, Errors: 0, Skipped: 8 — BUILD SUCCESS
+# CI（無 MySQL）—— 直接取自 Java Tests job 的輸出：
+Tests run: 0, ... -- in com.binance.trading.db.DBValidationTest
+Tests run: 58, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 
 # 本機含 MySQL：
-Tests run: 63, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
+Tests run: 66, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 ```
+
+`DBValidationTest` 是在 `@BeforeAll` 裡用 `Assumptions.assumeTrue` 自我把關。容器層級的 assumption
+失敗會中止整個 class，所以 surefire 記的是 `Tests run: 0`，而不是 8 個 skipped —— CI 是 58、本機是
+66，不是 58 + 8 skipped。
+
+> 本機那個數字的前提是 `binance_test_db` **剛建好**。如果 DB 裡已經累積了先前長時間跑引擎留下的訂單，
+> `buySellRatioIsBalanced` 會失敗 —— 那個失敗正是 2026-07 事故在資料上留下的痕跡，分析見
+> [RCA §8.1](docs/incident-2026-07-14-gc-death-spiral/RCA-zh-TW.md)。
 
 | 測試套件 | 測試數 | CI | 本機（MySQL） | 說明 |
 |---|---|---|---|---|
 | 單元 | 44 | ✅ | ✅ | OrderBook、OrderCache、AmountValidator、TradingEngine |
 | API | 7 | ✅ | ✅ | RestAssured 對真實內嵌 server |
 | 整合 | 4 | ✅ | ✅ | 端到端：4 種模式一起驗證 |
-| DB 驗證 | 8 | ⏭ 略過 | ✅ | 幣安 QA 風格的 MySQL 檢查（`-Dgroups=db-validation`） |
+| 耐久 | 3 | ✅ | ✅ | `OrderBookRetentionTest` —— 持續負載下集合維持有上限 |
+| DB 驗證 | 8 | ⏭ 不執行 | ✅ | 幣安 QA 風格的 MySQL 檢查（`-Dgroups=db-validation`） |
 
 ### 架構（Architecture）
 
@@ -339,7 +354,7 @@ CREATE TABLE orders (
 
 ### 測試
 
-功能測試沒有時間軸 —— 這正是 2026-07 GC 死亡螺旋期間，84 個功能測試全程都是綠的原因。這個模組把時間軸補到前端來。
+功能測試沒有時間軸 —— 這正是 2026-07 GC 死亡螺旋期間，整套功能測試全程都是綠的原因。（事故當下那套測試到底有幾個，從保存下來的證據無法確認 —— 見 RCA 的已知缺口表。）這個模組把時間軸補到前端來。
 
 | 層 | 檢查什麼 | 什麼時候跑 |
 |---|---|---|

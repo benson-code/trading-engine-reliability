@@ -2,6 +2,13 @@
 
 This document maps every claim in [`README.md`](README.md) to concrete, reproducible evidence — automated tests and live HTTP runs. It is a point-in-time verification record.
 
+> **⚠️ Test counts in this record are superseded.** §1 and §5 below reflect the suite as it stood at
+> `67afe59`. Six tests have been added since — `OrderBookRetentionTest` (3), `PaymentRetentionTest`
+> (2) and `JobRetentionEnduranceTest` (1) — so the current totals are **payment-api 46 ·
+> trading-engine 58 CI / 66 local = 104 CI / 112 local**. The numbers below are left unedited on
+> purpose: this is a record of what was verified on 2026-05-21, not a live dashboard. Everything
+> else here (§2–§4, §6–§7) still holds.
+
 | | |
 |---|---|
 | **Verified against** | `main` @ `67afe59` |
