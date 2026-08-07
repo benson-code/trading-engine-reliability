@@ -19,7 +19,7 @@ This repo turns that hard-won instinct into **executable proof at the DB layer**
 - **No WireMock theatre** — every API and integration test exercises the real `PaymentService` through an embedded HTTP server, not a mocked stand-in, so a green suite means the actual service behaves ([commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4) shows the mock-to-real migration).
 - **Payment-grade input & access control** — currency must match the account (`422`), amount precision is bounded to `DECIMAL(18,8)` (`400 INVALID_PRECISION`, no silent truncation), and the payment endpoints require an `X-API-Key` (constant-time compared) when configured ([`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)).
 - **The frontend is tested for the defect class that took the backend down** — `useTradingEngine` held two collections that only ever grew, one of them copying itself on every message. A Pixel 7 endurance test drives 40k orders — roughly 33 minutes of session — and asserts retained heap did not grow with them: **~2,070 KB → 401 KB**, with per-batch time flattening from 2.27x to 0.98x ([`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)).
-- **CI-enforced quality** — 98 Java tests plus a mobile-web endurance suite · a declarative `BOUNDED-BY` gate that fails any long-lived collection with no eviction and no stated reason it cannot grow · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
+- **CI-enforced quality** — 104 Java tests plus a mobile-web endurance suite · a declarative `BOUNDED-BY` gate that fails any long-lived collection with no eviction and no stated reason it cannot grow · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
 
 ---
 
@@ -27,12 +27,12 @@ This repo turns that hard-won instinct into **executable proof at the DB layer**
 
 ```
 binance-qa-suite/                  ← Monorepo root (Maven parent POM)
-├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 43 tests)
-├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 55 tests in CI / 63 with MySQL)
+├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 46 tests)
+├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 58 tests in CI / 66 with MySQL)
 └── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15) + mobile-web endurance test
 ```
 
-**One command runs all 98 Java tests:**
+**One command runs all 104 Java tests:**
 ```bash
 mvn test   # runs payment-api + trading-engine-simulator in sequence
 ```
@@ -57,8 +57,9 @@ Full-cycle automated testing covering API testing, database verification, idempo
 | DB Tests | Real JDBC repo: ACID rollback, strict accounts, idempotency constraint | JDBC, H2 (MySQL mode) |
 | Integration / E2E | Full flow + async settlement against the real service | RestAssured, embedded JDK HTTP server |
 | Concurrency | N-thread idempotency race → exactly-once debit | ExecutorService, both repos |
+| Endurance | Job and idempotency stores stay capped over a long run | JUnit 5, direct store inspection |
 
-**Total: 43 test cases** (16 unit/API/idempotency baseline + 5 real-service E2E + 6 JDBC ACID & negative-path + 3 field-length & HTTP-code accuracy + 4 currency-match + 4 amount-precision + 5 API-key auth)
+**Total: 46 test cases** (16 unit/API/idempotency baseline + 5 real-service E2E + 6 JDBC ACID & negative-path + 3 field-length & HTTP-code accuracy + 4 currency-match + 4 amount-precision + 5 API-key auth + 3 endurance/retention)
 
 > All API, integration and concurrency tests exercise the real
 > `PaymentService` through an embedded HTTP server — no WireMock.
@@ -93,20 +94,24 @@ payment-api/
     │   │   ├── PaymentRequest.java
     │   │   └── PaymentResponse.java
     │   └── service/
-    │       ├── PaymentRepository.java          (interface — the swap seam)
-    │       ├── InMemoryPaymentRepository.java  ← runnable impl (P1)
-    │       ├── JdbcPaymentRepository.java      ← real ACID impl (P3)
+    │       ├── PaymentRepository.java             (interface — the swap seam)
+    │       ├── InMemoryPaymentRepository.java     ← runnable impl (P1)
+    │       ├── JdbcPaymentRepository.java         ← real ACID impl (P3)
+    │       ├── CurrencyMismatchException.java     ← drives 422
+    │       ├── InsufficientBalanceException.java  ← drives 402
     │       └── PaymentService.java
     └── test/java/com/binance/payment/
         ├── unit/PaymentServiceTest.java
         ├── api/
         │   ├── PaymentAPITest.java
         │   ├── IdempotencyTest.java
-        │   └── PaymentServiceE2ETest.java      ← E2E vs the real server
+        │   ├── PaymentServiceE2ETest.java      ← E2E vs the real server
+        │   └── JobRetentionEnduranceTest.java  ← settlement must not resurrect evicted jobs
         ├── db/
         │   ├── BalanceVerificationTest.java
         │   └── JdbcPaymentRepositoryTest.java  ← strict accounts + ACID (P3)
         ├── concurrency/ConcurrentIdempotencyTest.java  ← N-thread race (P3)
+        ├── endurance/PaymentRetentionTest.java ← idempotency store stays capped
         ├── integration/PaymentFlowTest.java
         └── util/DatabaseUtil.java
 ```
@@ -186,7 +191,7 @@ The `UNIQUE(idempotency_key)` constraint is the concurrency backstop: under a ra
 ### How to Run
 
 ```bash
-# From repo root — runs all 98 tests (both modules)
+# From repo root — runs all 104 tests (both modules)
 mvn test
 
 # Payment module only
@@ -214,7 +219,7 @@ open payment-api/target/site/allure-maven-plugin/index.html
 
 ## Module 2 — Trading Engine Simulator
 
-BTC/USDT trading engine demonstrating 4 LeetCode algorithm patterns with 55 automated tests, MySQL persistence, and live WebSocket streaming.
+BTC/USDT trading engine demonstrating 4 LeetCode algorithm patterns with 58 automated tests, MySQL persistence, and live WebSocket streaming.
 
 ### LeetCode Patterns Implemented
 
@@ -228,19 +233,30 @@ BTC/USDT trading engine demonstrating 4 LeetCode algorithm patterns with 55 auto
 ### Test Results
 
 ```
-# CI (no MySQL):
-Tests run: 55, Failures: 0, Errors: 0, Skipped: 8 — BUILD SUCCESS
+# CI (no MySQL) — verbatim from the Java Tests job:
+Tests run: 0, ... -- in com.binance.trading.db.DBValidationTest
+Tests run: 58, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 
 # Local with MySQL:
-Tests run: 63, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
+Tests run: 66, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 ```
+
+`DBValidationTest` gates itself in `@BeforeAll` via `Assumptions.assumeTrue`. A container-level
+assumption aborts the class, so surefire reports it as `Tests run: 0` rather than as 8 skipped —
+58 in CI and 66 locally, not 58 + 8 skipped.
+
+> The local figure assumes a **freshly seeded** `binance_test_db`. Running against a database
+> that has accumulated orders from an earlier long engine run will fail
+> `buySellRatioIsBalanced` — that failure is the 2026-07 incident showing through the data, and
+> is analysed in [RCA §8.1](docs/incident-2026-07-14-gc-death-spiral/RCA-zh-TW.md).
 
 | Suite | Tests | CI | Local (MySQL) | Description |
 |---|---|---|---|---|
 | Unit | 44 | ✅ | ✅ | OrderBook, OrderCache, AmountValidator, TradingEngine |
 | API | 7 | ✅ | ✅ | RestAssured against live embedded server |
 | Integration | 4 | ✅ | ✅ | End-to-end: all 4 patterns verified together |
-| DB Validation | 8 | ⏭ Skipped | ✅ | Binance QA-style MySQL checks (`-Dgroups=db-validation`) |
+| Endurance | 3 | ✅ | ✅ | `OrderBookRetentionTest` — collections stay bounded under sustained load |
+| DB Validation | 8 | ⏭ Not run | ✅ | Binance QA-style MySQL checks (`-Dgroups=db-validation`) |
 
 ### Architecture
 
@@ -343,8 +359,10 @@ Real-time Binance-styled trading dashboard connecting to Module 2 via WebSocket.
 
 ### Testing
 
-Functional tests have no time axis — which is why 84 of them stayed green throughout the
-2026-07 GC death spiral. This module adds that axis to the frontend.
+Functional tests have no time axis — which is why the entire suite stayed green throughout the
+2026-07 GC death spiral. (The exact suite size at the time of the incident cannot be established
+from the preserved evidence — see the known-gaps table in the RCA.) This module adds that axis to
+the frontend.
 
 | Layer | What it checks | When it runs |
 |---|---|---|
