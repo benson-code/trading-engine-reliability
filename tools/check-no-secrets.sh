@@ -43,19 +43,26 @@ PATTERNS=(
   'sk-[A-Za-z0-9]{32,}'                                       # 各家 API key
   # 賦值成「帶引號的字面值」才算 —— this.password = password 這種欄位賦值不算
   '(PASS|PASSWD|PASSWORD|SECRET|TOKEN|APIKEY|API_KEY)[A-Za-z_]*[[:space:]]*[:=][[:space:]]*["'"'"'][A-Za-z0-9!@#%^&*_-][A-Za-z0-9!@#$%^&*_-]{7,}["'"'"']'   # 帶引號的字面值（首字元非 $，排除變數引用）
-  # shell 的預設值展開 —— ${DB_PASSWORD:-realpassword} 正是密碼最常藏的地方
+  # shell 的預設值展開 —— ${DB_PASSWORD:-<real value>} 正是密碼最常藏的地方
   '\$\{[A-Za-z_]*(PASS|SECRET|TOKEN|KEY)[A-Za-z_]*:-[^}]{6,}\}'
 )
 # 讀取例外清單（每條都必須附理由）
-ALLOW="$(mktemp)"; trap 'rm -f "$ALLOW"' EXIT
+ALLOW="$(mktemp)"
 if [ -f .secretsignore ]; then
   grep -vE '^\s*(#|$)' .secretsignore | awk '{print $1}' > "$ALLOW"
 fi
 ALLOW_N=$(wc -l < "$ALLOW")
 
+# 掃描範圍 = 已追蹤檔案 + 未被 gitignore 排除的未追蹤檔案。
+# 只用 git grep 的話，新檔案在 `git add` 之前是盲區 —— 而那正是
+# 憑證最容易被寫進去、又最容易被漏掉的時機。
+SCAN_LIST="$(mktemp)"; trap 'rm -f "$ALLOW" "$SCAN_LIST"' EXIT
+git ls-files --cached --others --exclude-standard -z 2>/dev/null > "$SCAN_LIST"
+SCAN_N=$(tr -cd '\0' < "$SCAN_LIST" | wc -c)
+
 for pat in "${PATTERNS[@]}"; do
   # 排除範本檔與說明文件中的示範字串
-  hits=$(git grep -nIE "$pat" -- . 2>/dev/null \
+  hits=$(xargs -0 -r grep -nIE "$pat" < "$SCAN_LIST" 2>/dev/null \
          | grep -viE '\.example:|CHANGE_ME|dummy-|placeholder|your[_-]|xxx|test-key-|<[^>]+>' \
          | grep -vFf "$ALLOW" || true)
   if [ -n "$hits" ]; then
@@ -86,6 +93,7 @@ done < <(git ls-files '*.example' 2>/dev/null)
 TRACKED=$(git ls-files | wc -l)
 echo "─────────────────────────────────────────────"
 printf " 已追蹤檔案數 : %d\n" "$TRACKED"
+printf " 實際掃描檔案 : %d（含尚未 git add 的新檔案）\n" "$SCAN_N"
 printf " 機密樣式規則 : %d\n" "${#PATTERNS[@]}"
 printf " 憑證檔       : %d（皆應為 untracked）\n" "${#CRED_FILES[@]}"
 printf " 已核准例外   : %d（見 .secretsignore）\n" "$ALLOW_N"
