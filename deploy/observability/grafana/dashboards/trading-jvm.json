@@ -1,0 +1,527 @@
+{
+ "title": "Trading Engine — JVM 可靠性",
+ "uid": "trading-jvm",
+ "tags": [
+  "sre",
+  "jvm",
+  "gc"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "refresh": "30s",
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "panels": [
+  {
+   "type": "row",
+   "title": "GC 死亡螺旋 — 事故指標",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "id": 100
+  },
+  {
+   "type": "stat",
+   "title": "Full GC 累計次數",
+   "gridPos": {
+    "h": 5,
+    "w": 6,
+    "x": 0,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "expr": "jvm_gc_full_count",
+     "refId": "A"
+    }
+   ],
+   "description": "2026-07-14 事故當時：114,879 次",
+   "options": {
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 100
+       },
+       {
+        "color": "red",
+        "value": 1000
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "id": 1
+  },
+  {
+   "type": "stat",
+   "title": "Full GC 佔存活時間比例",
+   "gridPos": {
+    "h": 5,
+    "w": 6,
+    "x": 6,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "expr": "jvm_gc_full_seconds_total / jvm_uptime_seconds",
+     "refId": "A"
+    }
+   ],
+   "description": "事故當時：491,218s / 698,732s = 70%",
+   "options": {
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0.05
+       },
+       {
+        "color": "red",
+        "value": 0.1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "id": 2
+  },
+  {
+   "type": "stat",
+   "title": "老年代使用率",
+   "gridPos": {
+    "h": 5,
+    "w": 6,
+    "x": 12,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "expr": "jvm_oldgen_utilization_ratio",
+     "refId": "A"
+    }
+   ],
+   "description": "事故當時：99.99%",
+   "options": {
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0.75
+       },
+       {
+        "color": "red",
+        "value": 0.9
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "id": 3
+  },
+  {
+   "type": "stat",
+   "title": "jstat attach 狀態",
+   "gridPos": {
+    "h": 5,
+    "w": 6,
+    "x": 18,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "expr": "jvm_jstat_attach_success",
+     "refId": "A"
+    }
+   ],
+   "description": "0 = 無法 attach。JVM 飽和時 attach 機制會失效（事故實測）。此時改由 DB 側界定影響範圍。",
+   "options": {
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "id": 4
+  },
+  {
+   "type": "row",
+   "title": "趨勢",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 6
+   },
+   "id": 101
+  },
+  {
+   "type": "timeseries",
+   "title": "老年代使用率趨勢",
+   "gridPos": {
+    "h": 7,
+    "w": 8,
+    "x": 0,
+    "y": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "expr": "jvm_oldgen_utilization_ratio",
+     "legendFormat": "old gen",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 0.9
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "id": 5
+  },
+  {
+   "type": "timeseries",
+   "title": "Heap 使用量",
+   "gridPos": {
+    "h": 7,
+    "w": 8,
+    "x": 8,
+    "y": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "expr": "jvm_oldgen_used_bytes",
+     "legendFormat": "old gen used",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "id": 6
+  },
+  {
+   "type": "timeseries",
+   "title": "Full GC 速率（次/秒）",
+   "gridPos": {
+    "h": 7,
+    "w": 8,
+    "x": 16,
+    "y": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "expr": "rate(jvm_gc_full_count[5m])",
+     "legendFormat": "full gc rate",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "id": 7
+  },
+  {
+   "type": "row",
+   "title": "主機資源",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 14
+   },
+   "id": 102
+  },
+  {
+   "type": "timeseries",
+   "title": "CPU 使用率",
+   "gridPos": {
+    "h": 7,
+    "w": 8,
+    "x": 0,
+    "y": 15
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+     "legendFormat": "cpu",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "id": 8
+  },
+  {
+   "type": "timeseries",
+   "title": "記憶體可用",
+   "gridPos": {
+    "h": 7,
+    "w": 8,
+    "x": 8,
+    "y": 15
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "expr": "node_memory_MemAvailable_bytes",
+     "legendFormat": "available",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "id": 9
+  },
+  {
+   "type": "timeseries",
+   "title": "磁碟可用（根目錄）",
+   "gridPos": {
+    "h": 7,
+    "w": 8,
+    "x": 16,
+    "y": 15
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "expr": "node_filesystem_avail_bytes{mountpoint=\"/rootfs\"}",
+     "legendFormat": "avail",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "id": 10
+  }
+ ],
+ "description": "對照 2026-07-14 GC 死亡螺旋事故的關鍵指標。事故基準：114,879 次 Full GC、491,218s STW（佔 uptime 70%）、老年代 99.99%。"
+}
