@@ -1,0 +1,31 @@
+# 黑箱監控：從「使用者的角度」探測服務，而不是問服務自己好不好。
+# 這是白箱指標（服務自報）之外的第二條路 —— 事故當下服務自報常常已經不可信。
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: [HTTP/1.1, HTTP/2.0]
+      valid_status_codes: [200]
+      method: GET
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+
+  # 不只看 200，還要看回應內容 —— 服務可能回 200 但內容是錯的
+  http_health_body:
+    prober: http
+    timeout: 5s
+    http:
+      valid_status_codes: [200]
+      method: GET
+      fail_if_body_not_matches_regexp:
+        - '"status"\s*:\s*"UP"'
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false

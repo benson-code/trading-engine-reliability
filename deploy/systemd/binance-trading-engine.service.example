@@ -1,0 +1,27 @@
+# /etc/systemd/system/binance-trading-engine.service
+#
+# 憑證透過 EnvironmentFile 注入，不寫在 unit 檔裡 ——
+# unit 檔是 world-readable（0644），把密碼寫在這裡等於公開它。
+# EnvironmentFile 指向的檔案才是 0640 root:ubuntu。
+
+[Unit]
+Description=Binance Trading Engine Simulator (Port 8092/8093)
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/qa
+
+# 憑證來源。檔案不存在時服務會啟動失敗 —— 這是刻意的：
+# 寧可大聲失敗，也不要靜默地用一個寫死的預設密碼。
+EnvironmentFile=/etc/binance-trading-engine.env
+
+ExecStart=/usr/bin/java -jar /home/ubuntu/qa/trading-engine-simulator/target/trading-engine-simulator-1.0.0.jar
+
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+# build context 越小，docker build 越快（context 要整包送給 daemon）
+**/target/
+**/node_modules/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.next/
+**/.next-e2e/
+.git/
+docs/
+*.log
+*.html

@@ -22,6 +22,20 @@ trading-engine-ui/*.log
 trading-engine-simulator/target/
 trading-engine-simulator/allure-results/
 
+# Python regression suite — the venv is rebuilt from requirements.txt, never committed
+python-qa/.venv/
+python-qa/.pytest_cache/
+python-qa/allure-results/
+python-qa/report.html
+__pycache__/
+*.py[cod]
+
+# fee-engine — uv rebuilds the venv from uv.lock, so only the lock is committed
+fee-engine/.venv/
+fee-engine/.pytest_cache/
+fee-engine/.hypothesis/
+fee-engine/dist/
+
 # Local-only prep & verification artifacts (never commit to the public repo)
 DEMO_GUIDE.md
 verify_suite.sh
@@ -29,3 +43,18 @@ verify_suite.sh
 
 # Exception: preserved incident evidence must stay complete (forensic integrity)
 !docs/incident-*/evidence/**/*.log
+
+# 可觀測性平台 — 本機執行期產物與憑證
+deploy/observability/mysqld/.my.cnf
+deploy/observability/alertmanager/delivered.log
+deploy/observability/alertmanager/sink.out
+deploy/observability/prometheus/*.bak
+deploy/observability/docker-compose.yml.bak
+incident-snapshots/
+
+# 服務憑證 —— 範本（*.example）進版控，實際憑證不進
+deploy/systemd/*.env
+!deploy/systemd/*.env.example
+
+# 可觀測性平台的執行期產物（由 exporter 每 30 秒重新產生）
+deploy/observability/textfile/*.prom
