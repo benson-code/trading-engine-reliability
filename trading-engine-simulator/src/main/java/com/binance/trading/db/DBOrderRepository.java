@@ -12,10 +12,26 @@ public class DBOrderRepository {
     private static final String URL  =
         "jdbc:mysql://127.0.0.1:3306/binance_test_db" +
         "?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
-    private static final String USER = "binance_user";
-    // NOTE-01 fix: read password from env var, fall back to default for local dev
-    private static final String PASS =
-        System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "BinanceTest2026";
+    private static final String USER =
+        System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "binance_user";
+
+    // Credentials come from the environment only — never from source.
+    // This repository is public; a hard-coded fallback would publish the
+    // password to anyone who reads it. The systemd unit supplies DB_PASSWORD
+    // via EnvironmentFile=/etc/binance-trading-engine.env (mode 0640).
+    // See deploy/systemd/README.md.
+    private static final String PASS = requireEnv("DB_PASSWORD");
+
+    private static String requireEnv(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(
+                name + " is not set. Export it before starting the service; "
+                + "see deploy/systemd/README.md. Credentials are never "
+                + "hard-coded in this repository.");
+        }
+        return value;
+    }
 
     // BUG-04 fix: separate lock object so we can safely reassign conn on reconnect
     private final Object dbLock = new Object();

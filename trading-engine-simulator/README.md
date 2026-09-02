@@ -118,15 +118,16 @@ docker run -d \
   --name trading-mysql \
   -e MYSQL_DATABASE=binance_test_db \
   -e MYSQL_USER=binance_user \
-  -e MYSQL_PASSWORD=BinanceTest2026 \
-  -e MYSQL_ROOT_PASSWORD=BinanceTest2026 \
+  -e MYSQL_PASSWORD="$DB_PASSWORD" \
+  -e MYSQL_ROOT_PASSWORD="$DB_ROOT_PASSWORD" \
   -p 3306:3306 \
   mysql:8.0
 ```
 
 The `orders` table is created automatically on first startup.
 
-> **Password**: set `DB_PASSWORD` env var to override the default (`BinanceTest2026`).
+> **Password**: `DB_PASSWORD` is **required** — there is no hard-coded fallback,
+> because this repository is public. See [`deploy/systemd/README.md`](../deploy/systemd/README.md).
 
 ---
 

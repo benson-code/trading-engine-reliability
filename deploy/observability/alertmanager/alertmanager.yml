@@ -1,0 +1,84 @@
+# ══════════════════════════════════════════════════════════════════
+#  Alertmanager — 告警路由與收斂
+#
+#  Prometheus 負責「判斷要不要叫」，Alertmanager 負責「叫誰、怎麼叫、
+#  什麼時候不要叫」。分開的理由：告警疲勞比沒有告警更危險 ——
+#  值班的人如果每晚收 200 則，第 201 則真的事故就會被忽略。
+# ══════════════════════════════════════════════════════════════════
+
+global:
+  resolve_timeout: 5m
+
+# ── 路由樹 ────────────────────────────────────────────────────────
+route:
+  # 同一組告警合併成一則通知，而不是每條噴一次
+  group_by: ['alertname', 'service']
+  group_wait:      30s   # 先等 30s，看還有沒有同組的一起來
+  group_interval:  5m    # 同一組有新成員時，最快 5 分鐘再通知一次
+  repeat_interval: 4h    # 沒解決的話每 4 小時提醒一次
+  receiver: 'default'
+
+  routes:
+    # critical 走值班管道，而且不等 group_wait
+    - matchers: [ 'severity = "critical"' ]
+      receiver: 'critical-oncall'
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true
+
+    # 容量類告警不需要半夜叫人 —— 它預測的是「24 小時後會滿」
+    - matchers: [ 'category = "capacity"' ]
+      receiver: 'capacity-planning'
+      group_interval: 30m
+      repeat_interval: 24h
+
+    - matchers: [ 'severity = "warning"' ]
+      receiver: 'default'
+
+# ── 抑制規則：SRE 的精髓 ──────────────────────────────────────────
+# 「主機掛了就不要再噴 20 條服務告警」—— 只留下根因那一則。
+inhibit_rules:
+  # 1. 主機掛掉 → 抑制該主機上所有其他告警
+  - source_matchers: [ 'alertname = "HostDown"' ]
+    target_matchers: [ 'severity =~ "critical|warning"' ]
+    equal: ['instance']
+
+  # 2. 同一個服務同時有 critical 和 warning → 只留 critical
+  - source_matchers: [ 'severity = "critical"' ]
+    target_matchers: [ 'severity = "warning"' ]
+    equal: ['alertname', 'service']
+
+  # 3. 症狀鏈收斂：GC 死亡螺旋已經在叫了，就不用再叫老年代偏高
+  #    （老年代偏高是死亡螺旋的前兆，兩者一起響只是噪音）
+  - source_matchers: [ 'alertname = "JvmGcTimeRatioHigh"' ]
+    target_matchers: [ 'alertname = "JvmOldGenHigh"' ]
+    equal: ['service']
+
+  # 4. 服務整個不可達 → 不用再報它「工作沒有前進」
+  - source_matchers: [ 'alertname = "ServiceDown"' ]
+    target_matchers: [ 'alertname = "EngineNotProgressing"' ]
+    equal: ['service']
+
+# ── 接收端 ────────────────────────────────────────────────────────
+receivers:
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://127.0.0.1:9199/alert'
+        send_resolved: true
+
+  - name: 'critical-oncall'
+    webhook_configs:
+      - url: 'http://127.0.0.1:9199/critical'
+        send_resolved: true
+    # 正式環境會在這裡接 PagerDuty / Slack / LINE Messaging API：
+    # slack_configs:
+    #   - api_url: '<webhook>'
+    #     channel: '#sre-oncall'
+    #     title: '{{ .CommonLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.summary }}
+    #            Runbook: {{ .Annotations.runbook_url }}{{ end }}'
+
+  - name: 'capacity-planning'
+    webhook_configs:
+      - url: 'http://127.0.0.1:9199/capacity'
+        send_resolved: false

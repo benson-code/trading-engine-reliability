@@ -1,0 +1,126 @@
+# ══════════════════════════════════════════════════════════════════
+#  Prometheus —— 採集與規則評估
+#
+#  網路架構註記：本機（Oracle Cloud）的 iptables 會擋掉
+#  container → host 的流量，所以整套堆疊改用 network_mode: host，
+#  全部透過 127.0.0.1 互通。這同時解除了原本被迫只能用
+#  textfile collector 的限制 —— 現在可以直接抓 exporter。
+# ══════════════════════════════════════════════════════════════════
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: orion-dev
+    env: dev
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['127.0.0.1:9093']
+
+scrape_configs:
+
+  # ── 自我監控 ────────────────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets: ['127.0.0.1:9090']
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ['127.0.0.1:9093']
+
+  # ── 主機層：CPU / 記憶體 / 磁碟 / 網路 ──────────────────────────
+  #    同時透過 textfile collector 帶入 jstat 採樣的 JVM 指標
+  #    與 trading-engine 的業務指標（jvm.prom / engine.prom）
+  - job_name: node
+    static_configs:
+      - targets: ['127.0.0.1:9100']
+        labels:
+          instance: orion-dev
+
+  # ── MySQL ───────────────────────────────────────────────────────
+  - job_name: mysql
+    static_configs:
+      - targets: ['127.0.0.1:9104']
+        labels:
+          instance: orion-dev
+          service: mysql
+
+  # ── Redis ───────────────────────────────────────────────────────
+  - job_name: redis
+    static_configs:
+      - targets: ['127.0.0.1:9121']
+        labels:
+          instance: orion-dev
+          service: redis
+
+  # ── 黑箱探測 ────────────────────────────────────────────────────
+  #    這段 relabel 是 Prometheus 的經典模式，值得看懂：
+  #      1. __address__ 原本是被探測的目標（例：127.0.0.1:8091）
+  #      2. 把它搬到 __param_target（blackbox 的查詢參數）
+  #      3. 再把 __address__ 覆寫成 blackbox exporter 自己的位址
+  #    → Prometheus 實際去打 blackbox，blackbox 才去打目標。
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params:
+      module: [http_health_body]
+    static_configs:
+      - targets:
+          - http://127.0.0.1:8091/api/v1/health      # payment-api（主機 JVM）
+          - http://127.0.0.1:8094/api/v1/health      # payment-api（容器）
+        labels:
+          service: payment-api
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+
+  - job_name: blackbox-status
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://127.0.0.1:8092/api/v1/status      # trading-engine
+        labels:
+          service: trading-engine
+      - targets:
+          - http://127.0.0.1:3000                    # 前端 UI
+        labels:
+          service: trading-engine-ui
+      - targets:
+          - http://127.0.0.1:3001/api/health         # Grafana 自身
+        labels:
+          service: grafana
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+
+  # ── TCP 層探測：DB / cache 的連通性 ─────────────────────────────
+  - job_name: blackbox-tcp
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: ['127.0.0.1:3306']
+        labels: { service: mysql }
+      - targets: ['127.0.0.1:6379']
+        labels: { service: redis }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115

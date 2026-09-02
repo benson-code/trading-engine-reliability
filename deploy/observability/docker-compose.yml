@@ -1,0 +1,127 @@
+# ══════════════════════════════════════════════════════════════════
+#  可觀測性平台 —— orion-dev
+#
+#  全部使用 network_mode: host。理由：本機 iptables 擋掉
+#  container → host，而 MySQL / Redis 都只綁 127.0.0.1。
+#  host 模式讓容器與主機共用網路命名空間，直接走 127.0.0.1。
+#
+#  安全註記：exporter 一律綁 127.0.0.1（它們會吐出 DB / cache 的
+#  內部狀態）。只有 UI 層（Prometheus / Grafana / Alertmanager）
+#  才對外開放。
+# ══════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── 儲存與規則評估 ──────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: obs-prometheus
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle          # 允許 POST /-/reload 熱載入設定
+      - --web.listen-address=0.0.0.0:9090
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - prom-data:/prometheus
+
+  # ── 告警路由 ────────────────────────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    container_name: obs-alertmanager
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.listen-address=0.0.0.0:9093
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+      - am-data:/alertmanager
+
+  # ── 視覺化 ──────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.5.1
+    container_name: obs-grafana
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      GF_SERVER_HTTP_PORT: "3001"        # 3000 被 next dev 佔用
+      # Grafana 預設不壓縮靜態資源。登入頁的 JS/CSS 未壓縮是 8.5 MB，
+      # 走 SSH 通道從台灣連過來會轉圈很久。開啟後約降到 2.6 MB。
+      GF_SERVER_ENABLE_GZIP: "true"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_FEATURE_TOGGLES_ENABLE: publicDashboards
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on: [prometheus]
+
+  # ── 採集：主機層 + textfile（jstat / engine 指標）───────────────
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: obs-node-exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.textfile.directory=/textfile
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|rootfs/var/lib/docker)($$|/)
+      - --web.listen-address=0.0.0.0:9100
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - ./textfile:/textfile:ro
+
+  # ── 採集：黑箱探測 ──────────────────────────────────────────────
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: obs-blackbox
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+      - --web.listen-address=127.0.0.1:9115
+    volumes:
+      - ./blackbox:/etc/blackbox:ro
+
+  # ── 採集：Redis ─────────────────────────────────────────────────
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.67.0
+    container_name: obs-redis-exporter
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --redis.addr=redis://127.0.0.1:6379
+      - --web.listen-address=127.0.0.1:9121
+
+  # ── 採集：MySQL ─────────────────────────────────────────────────
+  mysqld-exporter:
+    image: prom/mysqld-exporter:v0.16.0
+    container_name: obs-mysqld-exporter
+    restart: unless-stopped
+    network_mode: host
+    # 容器預設以 nobody(65534) 執行，讀不到 0600 且屬於 uid 1000 的 .my.cnf。
+    # 解法是讓容器用主機檔案擁有者的 uid 跑 —— 而不是把密碼檔 chmod 644。
+    user: "1001:1001"
+    command:
+      - --config.my-cnf=/cfg/.my.cnf
+      - --mysqld.address=127.0.0.1:3306
+      - --web.listen-address=127.0.0.1:9104
+    volumes:
+      - ./mysqld/.my.cnf:/cfg/.my.cnf:ro
+
+volumes:
+  prom-data:
+  am-data:
+  grafana-data:

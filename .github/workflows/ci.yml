@@ -7,10 +7,75 @@ on:
     branches: [main]
 
 jobs:
+
+  # ── 機密掃描：任何建置之前先跑，這是公開 repo ──────────────────
+  secrets:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: No credentials in version control
+        run: tools/check-no-secrets.sh
+
+  # ── 可觀測性平台：設定即程式碼，要通過 CI 才能合併 ─────────────────
+  observability:
+    name: Observability Config
+    runs-on: ubuntu-latest
+    needs: secrets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 告警規則語法。錯誤的規則會讓 Prometheus 整份 rule file 載入失敗 ——
+      # 也就是說一個 typo 可以讓所有告警靜默，這比沒有告警更危險。
+      - name: Validate Prometheus config & alert rules
+        run: |
+          docker run --rm -v "$PWD/deploy/observability/prometheus:/etc/prometheus:ro" \
+            --entrypoint promtool prom/prometheus:v3.1.0 \
+            check config /etc/prometheus/prometheus.yml
+          docker run --rm -v "$PWD/deploy/observability/prometheus:/etc/prometheus:ro" \
+            --entrypoint promtool prom/prometheus:v3.1.0 \
+            check rules /etc/prometheus/alerts.yml
+
+      - name: Validate Alertmanager routing config
+        run: |
+          docker run --rm -v "$PWD/deploy/observability/alertmanager:/cfg:ro" \
+            --entrypoint amtool prom/alertmanager:v0.28.0 \
+            check-config /cfg/alertmanager.yml
+
+      # 每條告警都必須有對應的處理 SOP。
+      # 沒有 runbook 的告警等於把問題丟給半夜被叫起來的人自己想。
+      - name: Alert → Runbook coverage gate
+        run: tools/check-alert-runbooks.sh
+
+      - name: Validate Grafana dashboard JSON
+        run: |
+          for f in deploy/observability/grafana/dashboards/*.json; do
+            python3 -c "import json,sys; d=json.load(open(sys.argv[1])); \
+              assert d.get('uid'), 'missing uid'; assert d.get('panels'), 'no panels'; \
+              print(f\"  ok {sys.argv[1]} — {d['title']} ({len(d['panels'])} panels)\")" "$f"
+          done
+
+
+      - name: Validate compose file
+        run: docker compose -f deploy/observability/docker-compose.yml config --quiet
+
+      # 密碼檔不得進版控
+      - name: Ensure no credentials committed
+        run: |
+          if git ls-files --error-unmatch deploy/observability/mysqld/.my.cnf 2>/dev/null; then
+            echo "::error::deploy/observability/mysqld/.my.cnf 含有密碼，不得提交"
+            exit 1
+          fi
+          echo "  ok — 密碼檔未進版控"
+
   # ── Java: all modules (payment-api + trading-engine-simulator) ──────────
   java-tests:
     name: Java Tests
     runs-on: ubuntu-latest
+    needs: secrets
 
     steps:
       - uses: actions/checkout@v4
@@ -61,6 +126,7 @@ jobs:
   ui-build:
     name: UI Build Check (Next.js 15)
     runs-on: ubuntu-latest
+    needs: secrets
 
     defaults:
       run:

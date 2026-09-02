@@ -28,8 +28,10 @@ class DBValidationTest {
             : "jdbc:mysql://localhost:3306/binance_test_db?useSSL=false&allowPublicKeyRetrieval=true";
     private static final String USER = System.getenv("DB_USER") != null
             ? System.getenv("DB_USER") : "binance_user";
-    private static final String PASS = System.getenv("DB_PASSWORD") != null
-            ? System.getenv("DB_PASSWORD") : "BinanceTest2026";
+    // No hard-coded fallback: this repository is public. With DB_PASSWORD
+    // unset the connection below fails and @BeforeAll skips the whole class,
+    // which is exactly the behaviour wanted on a runner with no MySQL.
+    private static final String PASS = System.getenv("DB_PASSWORD");
 
     private static Connection conn;
 

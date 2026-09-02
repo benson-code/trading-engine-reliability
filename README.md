@@ -19,7 +19,8 @@ This repo turns that hard-won instinct into **executable proof at the DB layer**
 - **No WireMock theatre** — every API and integration test exercises the real `PaymentService` through an embedded HTTP server, not a mocked stand-in, so a green suite means the actual service behaves ([commit `668bfc4`](https://github.com/benson-code/binance-qa-suite/commit/668bfc4) shows the mock-to-real migration).
 - **Payment-grade input & access control** — currency must match the account (`422`), amount precision is bounded to `DECIMAL(18,8)` (`400 INVALID_PRECISION`, no silent truncation), and the payment endpoints require an `X-API-Key` (constant-time compared) when configured ([`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)).
 - **The frontend is tested for the defect class that took the backend down** — `useTradingEngine` held two collections that only ever grew, one of them copying itself on every message. A Pixel 7 endurance test drives 40k orders — roughly 33 minutes of session — and asserts retained heap did not grow with them: **~2,070 KB → 401 KB**, with per-batch time flattening from 2.27x to 0.98x ([`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)).
-- **CI-enforced quality** — 104 Java tests plus a mobile-web endurance suite · a declarative `BOUNDED-BY` gate that fails any long-lived collection with no eviction and no stated reason it cannot grow · admin-enforced branch protection on `main` · PR-only · two required checks must be green · rebase-merge preserves the P1/P2/P3 commit narrative.
+- **Observability built from real incidents** — 24 Prometheus alert rules whose thresholds are reverse-engineered from two measured production incidents · 13 runbooks with CI-enforced coverage · Alertmanager routing with four inhibition rules · one-command incident-scene preservation.
+- **CI-enforced quality** — 104 Java tests plus a mobile-web endurance suite · a declarative `BOUNDED-BY` gate that fails any long-lived collection with no eviction and no stated reason it cannot grow · admin-enforced branch protection on `main` · PR-only · four required checks must be green (secret scan first) · rebase-merge preserves the P1/P2/P3 commit narrative.
 
 ---
 
@@ -29,7 +30,14 @@ This repo turns that hard-won instinct into **executable proof at the DB layer**
 binance-qa-suite/                  ← Monorepo root (Maven parent POM)
 ├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 46 tests)
 ├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 58 tests in CI / 66 with MySQL)
-└── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15) + mobile-web endurance test
+├── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15) + mobile-web endurance test
+├── deploy/
+│   ├── observability/             ← Module 4: Prometheus · Alertmanager · Grafana · exporters
+│   └── systemd/                   ← Service units and credential handling
+├── docs/
+│   ├── incident-2026-07-14-*/     ← Incident RCA with preserved evidence + SHA256 manifests
+│   └── runbooks/                  ← 13 alert-response SOPs (CI-enforced coverage)
+└── tools/                         ← CI quality gates + incident forensics
 ```
 
 **One command runs all 104 Java tests:**
@@ -421,15 +429,259 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 
 ---
 
+## Module 4 — Observability & Reliability Platform
+
+A Prometheus/Grafana platform built around two real incidents this repository
+suffered in July 2026. Every alert threshold is derived from a **measured value
+from those incidents**, not from a vendor default.
+
+### Why it exists
+
+Both incidents shared one property: **every conventional health check passed
+while the service was broken.**
+
+| Check | Incident #1 (GC death spiral) | Incident #2 (silent degradation) |
+|---|---|---|
+| `systemctl status` | `active (running)` ✅ | `active (running)` ✅ |
+| TCP port bound | yes ✅ | yes ✅ |
+| `GET /api/v1/status` | timed out ❌ | `200 OK` ✅ |
+| K8s liveness probe | would fail ❌ | would pass ✅ |
+| **Actual business output** | **zero** | **zero, for six days** |
+
+Incident #2 is the harder one: the process answered `200 OK` correctly for six
+days while producing nothing. No probe that asks *"is the service responding?"*
+can detect that. The platform's answer is to measure **whether work is
+progressing**, not whether a process is alive.
+
+Full root-cause analysis: [`docs/incident-2026-07-14-gc-death-spiral/`](docs/incident-2026-07-14-gc-death-spiral/RCA-zh-TW.md)
+(with preserved evidence and SHA256 manifests).
+
+### Architecture
+
+```
+Layer 4   Grafana ───── SRE overview · capacity planning · JVM incident replay
+                             ▲
+Layer 3   Alertmanager ── severity routing · 4 inhibition rules · → runbooks
+                             ▲
+Layer 2   Prometheus ──── 24 rules / 6 groups · 30d retention
+                             ▲
+Layer 1   Collection ──── node_exporter (+textfile) · blackbox · mysqld · redis
+                             ▲
+Layer 0   Monitored ───── payment-api · trading-engine · MySQL · Redis · host
+```
+
+All services run with `network_mode: host`. The host's iptables blocks
+container→host traffic, and MySQL/Redis bind to `127.0.0.1` only; host
+networking lets everything talk over loopback. Exporters bind to `127.0.0.1`
+(they expose database internals); only the UI layer is reachable externally.
+
+### Components
+
+| Service | Port | Bind | Role |
+|---|---|---|---|
+| Prometheus | 9090 | `0.0.0.0` | Scraping and rule evaluation |
+| Alertmanager | 9093 | `0.0.0.0` | Routing, grouping, inhibition |
+| Grafana | 3001 | `0.0.0.0` | Dashboards (3000 is taken by `next dev`) |
+| node_exporter | 9100 | `0.0.0.0` | Host metrics + textfile collector |
+| blackbox_exporter | 9115 | `127.0.0.1` | External probing |
+| mysqld_exporter | 9104 | `127.0.0.1` | MySQL metrics |
+| redis_exporter | 9121 | `127.0.0.1` | Redis metrics |
+
+JVM metrics are sampled by [`jstat-exporter.sh`](deploy/observability/jstat-exporter.sh)
+into the textfile collector rather than via a JMX agent: the JVM under
+observation was started without `-javaagent`, and restarting it would have
+destroyed the clean post-fix reference run.
+
+### Alert design
+
+24 rules in 6 groups, each answering a different question:
+
+| Group | Question | Rules |
+|---|---|---|
+| `availability` | Can users reach it right now? (blackbox) | 3 |
+| `work-progress` | Is work actually progressing? (incident #2) | 3 |
+| `jvm-gc` | Is the JVM healthy? (incident #1) | 4 |
+| `saturation` | Are resources running out? (USE method) | 4 |
+| `capacity` | *How long until* they run out? (`predict_linear`) | 4 |
+| `dependencies` | Are MySQL and Redis alive? | 6 |
+
+**Thresholds are reverse-engineered from the incidents:**
+
+| Signal | Threshold | Measured during the incident |
+|---|---|---|
+| Full GC as a fraction of process uptime | > 10% | **70%** (491,218s STW / 698,732s uptime) |
+| Old-gen utilisation | > 85% | **99.99%** |
+| Full GC count | rate > 0.1/s | **114,879 collections** |
+| Order generation rate | 0 for 10 min | normal is **1,198 rows/min** (≈20/s) |
+
+### Alert routing
+
+`critical` pages immediately; `capacity` alerts (which predict a problem 24
+hours out) are deliberately routed to a non-paging channel. Four inhibition
+rules keep one failure from producing twenty notifications:
+
+1. `HostDown` suppresses every other alert on that host
+2. `critical` suppresses `warning` for the same service
+3. `JvmGcTimeRatioHigh` suppresses `JvmOldGenHigh` (symptom-chain collapse)
+4. `ServiceDown` suppresses `EngineNotProgressing`
+
+> Alert fatigue is more dangerous than no alerts. An on-call engineer receiving
+> 200 notifications a night will miss the 201st.
+
+### Runbooks — enforced, not aspirational
+
+**Every alert carries a `runbook_url`, and CI fails the build if one is
+missing.** [`tools/check-alert-runbooks.sh`](tools/check-alert-runbooks.sh)
+checks three invariants:
+
+- **R1** every alert has a `runbook_url`
+- **R2** the file it points at exists
+- **R3** no orphaned runbooks (a document no alert references)
+
+13 runbooks cover all 24 alerts. Each follows the same six sections: trigger
+conditions · impact · first three minutes · stopping the bleeding · root-cause
+investigation · follow-up. See [`docs/runbooks/`](docs/runbooks/README.md).
+
+> An alert without a documented response is a problem handed to whoever is
+> woken at 3am. That is a failure of alert design, not of the person on call.
+
+### Dashboards
+
+| Dashboard | Contents |
+|---|---|
+| **SRE Overview** | Availability · work progress · JVM · dependencies · host (5 sections, 31 panels) |
+| **Capacity Planning** | `predict_linear` projections for disk, heap, Redis and host |
+| **Trading Engine JVM** | Purpose-built replay view for incident #1 |
+
+### Incident forensics
+
+[`tools/preserve-scene.sh`](tools/preserve-scene.sh) captures a
+non-destructive evidence snapshot in one command — `/proc`, `jstat`,
+systemd journal, blackbox probes, database bounds — and writes a SHA256
+manifest.
+
+Two deliberate design choices:
+
+- **`jstat` timing out is recorded as evidence, not as a collection failure.**
+  During incident #1, `jcmd` and `jstack` could not attach because the JVM's
+  attach handshake thread had itself been starved by GC. That failure is a
+  positive diagnostic signal.
+- **Database queries use a high-watermark bound, never a full table scan.**
+  The `orders` table holds tens of millions of rows and is written to
+  continuously; a full scan would contend with live writes on a shared host.
+
+### Quick start
+
+```bash
+cp deploy/observability/mysqld/.my.cnf.example deploy/observability/mysqld/.my.cnf
+$EDITOR deploy/observability/mysqld/.my.cnf && chmod 600 deploy/observability/mysqld/.my.cnf
+
+make obs-up          # start the platform
+make obs-status      # containers · scrape targets · firing alerts
+make obs-validate    # promtool + amtool config validation
+make obs-reload      # hot-reload rules without restarting
+make runbooks        # alert ↔ runbook coverage
+make preserve        # capture an incident snapshot
+```
+
+Grafana: `http://localhost:3001`. On a remote host, forward the port over SSH
+rather than opening the firewall:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 -L 9090:127.0.0.1:9090 -L 9093:127.0.0.1:9093 user@host
+```
+
+### What it caught on its first day
+
+| Alert | Reality |
+|---|---|
+| `EngineWorkerStopped` | Order generator had been stopped since **2026-08-26 06:02** — **seven days**, unnoticed |
+| `EngineNotProgressing` | Database writes had fallen from 1,198 rows/min to zero |
+| `RedisIsUnbounded` | Redis running with `maxmemory=0` / `noeviction` — the same defect class as incident #1's unbounded collections |
+
+The journal shows incident #2 repeating exactly:
+
+```
+06:02:02  [DB] Save failed ... Communications link failure
+06:02:13  systemd: Stopping binance-trading-engine.service
+06:02:13  Main process exited, code=exited, status=143/n/a    ← 143 = 128+15 = SIGTERM
+06:02:13  systemd: Started binance-trading-engine.service     ← systemd restarted it successfully
+06:02:14  Engine : STOPPED — press RUN in the UI to start     ← the worker never came back
+```
+
+For all seven days `systemctl` reported `active (running)`, ports 8092/8093
+were bound, and `/api/v1/status` returned `200`. The only signal that could
+have caught it is the rate of business output.
+
+---
+
+## Security & Credentials
+
+This is a **public** repository. Anything committed here is published
+permanently — git history keeps it even after a later deletion.
+
+### No credential is ever hard-coded
+
+`DBOrderRepository` **refuses to start** when `DB_PASSWORD` is unset. There is
+no fallback default. Failing loudly is preferred over silently connecting with
+a password that is readable by anyone.
+
+| Component | Credential source | Mode |
+|---|---|---|
+| trading-engine (systemd) | `/etc/binance-trading-engine.env` via `EnvironmentFile=` | `0640 root:ubuntu` |
+| `tools/check-db-integrity.sh` | `DB_PASSWORD` env var, or `deploy/observability/mysqld/.my.cnf` | `0600` |
+| `tools/preserve-scene.sh` | same (skips DB capture when absent, does not abort) | `0600` |
+| mysqld_exporter | `deploy/observability/mysqld/.my.cnf` | `0600` |
+
+Templates (`*.example`) are version-controlled; the real files are not.
+Setup: [`deploy/systemd/README.md`](deploy/systemd/README.md).
+
+**Credentials are not placed in the systemd unit either.** Unit files are mode
+`0644` — world-readable on the host. Putting `Environment=DB_PASSWORD=…` there
+only moves the secret from git to `/etc`.
+
+**Scripts use `--defaults-extra-file`, never `-p`:**
+
+```bash
+mysql -u user -p"$PASSWORD"      # ✗ the password appears in `ps` output
+mysql --defaults-extra-file=…    # ✓ protected by file permissions alone
+```
+
+### Enforced by CI
+
+[`tools/check-no-secrets.sh`](tools/check-no-secrets.sh) runs as the **first**
+CI job; every other job depends on it. It checks four invariants:
+
+- **S1** known credential files are not tracked by git
+- **S2** no high-risk secret patterns in tracked files — private keys, AWS/GitHub/Slack tokens, quoted password literals, and shell default-expansions such as `${DB_PASSWORD:-<a real value>}`
+- **S3** every credential file has a matching `.example` template
+- **S4** templates contain placeholders, not real values
+
+Exceptions live in [`.secretsignore`](.secretsignore) and **each one must carry
+a written reason** — an undocumented exception is just a hole.
+
+### Known exposure
+
+An earlier revision of this repository contained a hard-coded password for the
+**local test database** (`binance_test_db`). It has been removed from the
+working tree, but it remains in git history and must be treated as public.
+
+Practical exposure is nil: MySQL binds to `127.0.0.1` only, and the host
+firewall accepts nothing but port 22. The credential grants no access from
+outside the machine. It is nonetheless being rotated — a leaked secret is fixed
+by changing it, not by deleting the line that showed it.
+
+---
+
 ## Repo Conventions
 
 | Setting | Value |
 |---|---|
-| `main` branch protection | PR-only · 2 required CI checks · `enforce_admins: true` · force-push & deletion disabled · conversation resolution required |
+| `main` branch protection | PR-only · 4 required CI checks · `enforce_admins: true` · force-push & deletion disabled · conversation resolution required |
 | Repo merge strategy | Squash **disabled** · Merge + Rebase allowed · auto-delete branch on merge |
 | Recommended merge mode | **Rebase merge** — keeps the P1 → P2 → P3 commits as a linear narrative on `main` |
 | CI triggers | `push` to `main`/`develop` · `pull_request` to `main` |
-| Required checks | `Java Tests` · `UI Build Check (Next.js 15)` |
+| Required checks | `Secret Scan` · `Observability Config` · `Java Tests` · `UI Build Check (Next.js 15)` |
 
 > The portfolio's history was built as a phased refactor. `git log --oneline main` shows the four steps from the empty-shell payment-api to the real ACID-backed service in chronological order — the commit log is itself a design document.
 
@@ -453,3 +705,8 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 | TypeScript | Frontend type safety |
 | Tailwind CSS | UI styling |
 | Playwright | Mobile-web e2e & endurance testing |
+| Prometheus | Metrics collection, alert rule evaluation |
+| Alertmanager | Alert routing, grouping and inhibition |
+| Grafana | Dashboards (SRE overview, capacity planning) |
+| Docker Compose | Observability stack orchestration |
+| Bash / Make | Operational interface, CI gates, incident forensics |
