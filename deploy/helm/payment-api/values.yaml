@@ -1,0 +1,54 @@
+# ══════════════════════════════════════════════════════════════════
+#  預設值。以環境覆寫：helm install -f values-prod.yaml
+#
+#  把設定抽到這裡的意義，不是「可以改參數」，而是
+#  **各環境之間的差異變成一份可 review 的 diff**。
+#  手改 YAML 的環境漂移，是部署事故最常見的來源。
+# ══════════════════════════════════════════════════════════════════
+
+replicaCount: 2
+
+image:
+  repository: docker.io/library/payment-api
+  tag: local
+  pullPolicy: Never          # 本機 image；正式環境改 IfNotPresent
+
+service:
+  type: NodePort
+  port: 80
+  nodePort: 30091
+
+# JVM heap 上限刻意低於 container memory limit ——
+# 見 templates/deployment.yaml 的註解
+resources:
+  requests: { memory: 256Mi, cpu: 100m }
+  limits:   { memory: 512Mi, cpu: 500m }
+
+config:
+  paymentPort: "8091"
+  paymentRepo: "memory"
+  javaOpts: "-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+
+probes:
+  # liveness 失敗 = 殺掉重啟。門檻放寬，因為誤判的代價是
+  # 銷毀現場證據（2026-07 事故 #1 的教訓）。
+  liveness:  { initialDelaySeconds: 20, periodSeconds: 15, timeoutSeconds: 3, failureThreshold: 3 }
+  # readiness 失敗 = 摘出流量但不重啟。這支才是該投資的。
+  readiness: { initialDelaySeconds: 10, periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 2 }
+  # startup 保護慢啟動的 JVM，避免暖機期被 liveness 誤殺
+  startup:   { periodSeconds: 5, failureThreshold: 12 }
+
+rollingUpdate:
+  maxUnavailable: 0          # 零停機：更新期間不減少可用副本
+  maxSurge: 1
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+
+# ── 優雅終止 ──────────────────────────────────────────────────────
+# preStop 的 sleep 秒數：必須 > endpoint 從 Service 移除並傳播到
+# 各節點 iptables 的時間。設太短就會漏請求（實測 0.34% 失敗）。
+terminationDelaySeconds: 8
+# 總寬限期，必須 > terminationDelaySeconds + 應用自身收尾時間
+terminationGracePeriodSeconds: 25

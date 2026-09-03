@@ -591,6 +591,81 @@ journal 顯示事故 #2 完整重演：
 
 ---
 
+## 模組 5 — Kubernetes 部署
+
+這個服務也跑在 Kubernetes 上，用 Helm 部署。有意思的不是「部署成功」，
+而是**量測部署過程之後發現了什麼**。
+
+### 內容
+
+| 路徑 | 說明 |
+|---|---|
+| [`deploy/helm/payment-api/`](deploy/helm/payment-api/) | Helm chart —— 副本數、image、資源、probe 時間全部由 values driven |
+| [`deploy/k8s/payment-api.yaml`](deploy/k8s/payment-api.yaml) | 同樣的部署，純 manifest 版本，方便不裝 Helm 直接閱讀 |
+| [`tools/k8s-rollout-drill.sh`](tools/k8s-rollout-drill.sh) | 滾動更新演練：持續流量下計算使用者可見的失敗 |
+| [`tools/check-k8s-manifests.sh`](tools/check-k8s-manifests.sh) | CI 閘門：lint、算繪、probe 政策 |
+
+目標是同一台 ARM64 主機上的**自架單節點 k3s** —— 規模小到可以誠實描述，
+但足夠操作到真正重要的機制。
+
+```bash
+make k8s-image     # docker save | k3s ctr images import（k3s 用 containerd）
+make k8s-deploy    # helm upgrade --install --wait
+make k8s-status    # 節點 · pod · service · helm release
+make k8s-drill     # 持續流量下的滾動更新演練
+make k8s-lint      # CI 跑的同一道閘門
+```
+
+### 三支 probe，三種不同的職責
+
+這裡是模組 4 的兩次事故回頭影響部署設計的地方。
+
+| Probe | 失敗時 | 為什麼要分開設定 |
+|---|---|---|
+| `startupProbe` | 延後另外兩支 | 冷啟動的 JVM 很慢。沒有它，`livenessProbe` 會在暖機期間把 pod 殺掉，於是永遠起不來。 |
+| `livenessProbe` | **殺掉並重啟** pod | 門檻刻意放寬。誤判的代價是銷毀查根因所需的現場證據 —— 事故 #1 就是這樣。 |
+| `readinessProbe` | 移出 Service，**不重啟** | 這支才值得投資：把有問題的副本摘出流量，同時留著讓人去查。 |
+
+**Kubernetes 這兩次事故都救不了。** GC 死亡螺旋那次，JVM 自己的 heap 上限
+（`MaxRAMPercentage=75`）低於容器的記憶體 limit，所以容器永遠碰不到 cgroup
+限制，不會被 `OOMKilled`。靜默降級那次，健康端點全程正確回 `200` ——
+每一支 probe 都會通過。這正是模組 4 的告警要量測**工作進度**而不是
+存活狀態的原因。
+
+### 滾動更新演練
+
+`maxUnavailable: 0` 是宣告，不是保證。演練在持續流量下執行滾動更新，
+計算**客戶端實際看到**的結果：
+
+```
+第一次     580 筆請求    2 筆非 200   (0.34%)
+修正後     680 筆請求    0 筆非 200   (0.00%)
+```
+
+**那 0.34% 的成因：** pod 進入 `Terminating` 時，`SIGTERM` 和「從 endpoint
+移除」是同時發生的。移除要傳播到每個節點的 iptables 規則，而容器在傳播
+完成前就關閉了 —— 流量仍被送往一個已經關掉的 socket。
+
+**修法：** 加上足以涵蓋傳播時間的 `preStop` sleep，並把
+`terminationGracePeriodSeconds` 設在它之上。
+
+> 這個缺陷在 manifest 上完全看不出來，只有在持續流量下才會現形。
+> 這就是「部署要演練，不能只用 review」的理由。
+
+### CI 閘門
+
+`tools/check-k8s-manifests.sh` 在 CI 執行，檢查四件事：
+
+- **K1** `helm lint` 通過
+- **K2** chart 能實際算繪（lint 只看語法，缺少的 values 要算繪才會現形）
+- **K3** 算繪出的每份文件都是合法的 Kubernetes 物件
+- **K4** **每個容器都宣告了 liveness 與 readiness probe**
+
+K4 是本專案特有的政策。沒有 probe 的 Deployment 等於主張
+「進程活著就是健康」—— 那正是兩次事故背後的根本誤判。
+
+---
+
 ## 安全與憑證管理
 
 這是一個**公開** repo。任何提交進來的東西都是永久公開的 ——
@@ -651,11 +726,11 @@ job，其他所有 job 都相依於它。檢查四項不變式：
 
 | 設定 | 值 |
 |---|---|
-| `main` 分支保護 | 僅 PR · 4 個必過 CI 檢查 · `enforce_admins: true` · 禁止 force-push 與刪除 · 需解決所有對話 |
+| `main` 分支保護 | 僅 PR · 5 個必過 CI 檢查 · `enforce_admins: true` · 禁止 force-push 與刪除 · 需解決所有對話 |
 | Repo 合併策略 | Squash **停用** · 允許 Merge + Rebase · 合併後自動刪除分支 |
 | 建議合併模式 | **Rebase merge** —— 讓 P1 → P2 → P3 commits 在 `main` 上保持線性敘事 |
 | CI 觸發 | `push` 到 `main`/`develop` · `pull_request` 到 `main` |
-| 必過檢查 | `Secret Scan` · `Observability Config` · `Java Tests` · `UI Build Check (Next.js 15)` |
+| 必過檢查 | `Secret Scan` · `Kubernetes Manifests` · `Observability Config` · `Java Tests` · `UI Build Check (Next.js 15)` |
 
 > 這個作品集是一步一步分階段重構（phased refactor）做出來的。`git log --oneline main` 會照時間順序，把從空殼 payment-api 到真實 ACID 服務的四個步驟攤開給你看 —— 這份 commit log 本身就是一份設計文件。
 
@@ -683,4 +758,6 @@ job，其他所有 job 都相依於它。檢查四項不變式：
 | Alertmanager | 告警路由、分組與抑制 |
 | Grafana | 儀表板（SRE 總覽、容量規劃）|
 | Docker Compose | 可觀測性堆疊編排 |
+| Kubernetes (k3s) | 容器編排 —— Deployment、Service、ConfigMap、probe |
+| Helm | 上述部署的樣板化與參數化 |
 | Bash / Make | 操作介面、CI 閘門、事故現場保全 |
