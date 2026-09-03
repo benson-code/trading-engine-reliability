@@ -26,7 +26,7 @@ groups:
       annotations:
         summary: "{{ $labels.instance }} 外部探測失敗"
         description: "黑箱探測連續 1 分鐘失敗。這是使用者實際感受到的狀態，優先於任何服務自報的指標。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/service-down.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/service-down.md"
 
     - alert: ServiceSlowResponse
       expr: probe_duration_seconds > 1
@@ -35,7 +35,7 @@ groups:
       annotations:
         summary: "{{ $labels.instance }} 回應時間 {{ $value | humanizeDuration }}"
         description: "探測耗時超過 1 秒。GC 壓力上升時這條通常比 ServiceDown 先亮。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/service-slow.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/service-slow.md"
 
     - alert: HostDown
       expr: up{job="node"} == 0
@@ -44,7 +44,7 @@ groups:
       annotations:
         summary: "主機 {{ $labels.instance }} 失聯"
         description: "node_exporter 無回應。此告警會抑制該主機上所有其他告警。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/host-down.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/host-down.md"
 
 # ─────────────────────────────────────────────────────────────────
 # 2. 工作進度 —— 事故 #2 的直接對策
@@ -65,7 +65,7 @@ groups:
           SIGTERM 掉服務，systemd 成功重啟了進程，但 worker thread 被
           in-memory AtomicBoolean 擋住沒有恢復，靜默六天無人察覺。
           所有 liveness check 在那六天內全部通過。
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/engine-not-progressing.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/engine-not-progressing.md"
 
     - alert: EngineWorkerStopped
       expr: engine_up == 1 and engine_running == 0
@@ -74,7 +74,7 @@ groups:
       annotations:
         summary: "trading-engine 的產生器旗標為停止（engine_running=0）"
         description: "服務可達但自報未在運行。重啟後未自動恢復是已知缺陷。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/engine-not-progressing.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/engine-not-progressing.md"
 
     - alert: DatabaseWriteStalled
       expr: engine_running == 1 and rate(engine_orders_generated_total[15m]) == 0
@@ -83,7 +83,7 @@ groups:
       annotations:
         summary: "產生器自報運行中，但 15 分鐘沒有任何寫入"
         description: "自報狀態與實際產出矛盾 —— 服務在說謊，優先相信計數器。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/engine-not-progressing.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/engine-not-progressing.md"
 
 # ─────────────────────────────────────────────────────────────────
 # 3. JVM / GC —— 事故 #1 的直接對策（閾值全部由實測值反推）
@@ -97,7 +97,7 @@ groups:
       annotations:
         summary: "老年代使用率 {{ $value | humanizePercentage }} 持續 5 分鐘偏高"
         description: "無界集合造成物件無法回收時，這裡會先亮。2026-07 的死亡螺旋事故就是從這裡開始。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/gc-death-spiral.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/gc-death-spiral.md"
 
     - alert: JvmGcTimeRatioHigh
       expr: (jvm_gc_full_seconds_total / jvm_uptime_seconds) > 0.10
@@ -106,7 +106,7 @@ groups:
       annotations:
         summary: "Full GC 佔用 {{ $value | humanizePercentage }} 的行程存活時間"
         description: "事故基準值：491,218s STW / 698,732s uptime = 70%。超過 10% 即應介入。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/gc-death-spiral.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/gc-death-spiral.md"
 
     - alert: JvmFullGcRateHigh
       expr: rate(jvm_gc_full_count[5m]) > 0.1
@@ -115,7 +115,7 @@ groups:
       annotations:
         summary: "Full GC 頻率 {{ $value }}/s — 死亡螺旋前兆"
         description: "背靠背 Full GC 表示回收不到空間。事故時累計 114,879 次。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/gc-death-spiral.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/gc-death-spiral.md"
 
     - alert: JstatAttachFailed
       expr: jvm_jstat_attach_success == 0
@@ -126,7 +126,7 @@ groups:
         description: >-
           JVM 飽和時 attach 機制會失效（2026-07-14 事故實測，jcmd/jstack 同時逾時）。
           診斷工具失效本身是症狀，不是「沒有資料」。此時應改由 DB 側界定影響範圍。
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/jstat-attach-failed.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/jstat-attach-failed.md"
 
 # ─────────────────────────────────────────────────────────────────
 # 4. 飽和度 —— USE 方法（Utilisation / Saturation / Errors）
@@ -140,7 +140,7 @@ groups:
       annotations:
         summary: "CPU 使用率 {{ $value | printf \"%.1f\" }}%"
         description: "事故當時兩顆核心被 GC 執行緒占滿，load average 2.03 / 2 cores。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/host-saturation.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/host-saturation.md"
 
     - alert: HostLoadHigh
       expr: node_load1 / count by(instance) (node_cpu_seconds_total{mode="idle"}) > 1.5
@@ -148,7 +148,7 @@ groups:
       labels: { severity: warning, category: saturation }
       annotations:
         summary: "每核心 load {{ $value | printf \"%.2f\" }}（>1.5 表示有排隊）"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/host-saturation.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/host-saturation.md"
 
     - alert: HostMemoryLow
       expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.15
@@ -157,7 +157,7 @@ groups:
       annotations:
         summary: "可用記憶體僅剩 {{ $value | humanizePercentage }}"
         description: "此主機 swap = 0，記憶體壓力沒有緩衝空間。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/host-saturation.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/host-saturation.md"
 
     - alert: HostDiskLow
       expr: node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.15
@@ -165,7 +165,7 @@ groups:
       labels: { severity: warning, category: saturation }
       annotations:
         summary: "根目錄可用空間 {{ $value | humanizePercentage }}"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/disk-capacity.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/disk-capacity.md"
 
 # ─────────────────────────────────────────────────────────────────
 # 5. 容量規劃 —— 不問「現在滿了嗎」，問「多久之後會滿」
@@ -180,7 +180,7 @@ groups:
       annotations:
         summary: "依過去 6 小時的成長率，根目錄將在 24 小時內用盡"
         description: "預測性告警：在還有時間處理的時候通知，而不是等到磁碟滿了才叫。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/disk-capacity.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/disk-capacity.md"
 
     - alert: DiskWillFillIn7d
       expr: predict_linear(node_filesystem_avail_bytes{mountpoint="/"}[24h], 7*24*3600) < 0
@@ -189,7 +189,7 @@ groups:
       annotations:
         summary: "依過去 24 小時的成長率，根目錄將在 7 天內用盡"
         description: "進 Sprint backlog 的等級，不需要立即處理。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/disk-capacity.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/disk-capacity.md"
 
     - alert: RedisIsUnbounded
       expr: redis_config_maxmemory == 0
@@ -202,7 +202,7 @@ groups:
           這與 2026-07 事故中 OrderBook 三個無界集合是同一個缺陷類別：
           只進不出、沒有容量上限、沒有淘汰機制。
           修法：設定 maxmemory 並選擇 eviction policy（allkeys-lru / volatile-ttl）。
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/redis-unbounded.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/redis-unbounded.md"
 
     - alert: JvmHeapGrowthUnbounded
       expr: predict_linear(jvm_oldgen_used_bytes[6h], 24*3600) > jvm_oldgen_capacity_bytes
@@ -213,7 +213,7 @@ groups:
         description: >-
           這條是事故 #1 的「早期版本」：在死亡螺旋開始之前 6 天就會亮。
           事故實際歷程是執行 7.6 天累積 1,136 萬筆訂單後才耗盡 heap。
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/gc-death-spiral.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/gc-death-spiral.md"
 
 # ─────────────────────────────────────────────────────────────────
 # 6. 相依元件 —— MySQL / Redis
@@ -227,7 +227,7 @@ groups:
       annotations:
         summary: "MySQL 無法連線"
         description: "事故 #2 的觸發點就是 unattended-upgrades 重啟了 MySQL。"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/mysql-down.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/mysql-down.md"
 
     - alert: MysqlConnectionsHigh
       expr: mysql_global_status_threads_connected / mysql_global_variables_max_connections > 0.8
@@ -235,7 +235,7 @@ groups:
       labels: { severity: warning, category: saturation, service: mysql }
       annotations:
         summary: "MySQL 連線數達上限的 {{ $value | humanizePercentage }}"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/mysql-saturation.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/mysql-saturation.md"
 
     - alert: MysqlSlowQueriesRising
       expr: rate(mysql_global_status_slow_queries[10m]) > 0.1
@@ -243,7 +243,7 @@ groups:
       labels: { severity: warning, category: saturation, service: mysql }
       annotations:
         summary: "慢查詢速率 {{ $value | printf \"%.2f\" }}/s"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/mysql-saturation.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/mysql-saturation.md"
 
     - alert: RedisDown
       expr: redis_up == 0
@@ -251,7 +251,7 @@ groups:
       labels: { severity: critical, category: availability, service: redis }
       annotations:
         summary: "Redis 無法連線"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/redis-down.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/redis-down.md"
 
     - alert: RedisMemoryHigh
       expr: redis_config_maxmemory > 0 and redis_memory_used_bytes / redis_config_maxmemory > 0.9
@@ -259,7 +259,7 @@ groups:
       labels: { severity: warning, category: saturation, service: redis }
       annotations:
         summary: "Redis 記憶體達上限的 {{ $value | humanizePercentage }}"
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/redis-unbounded.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/redis-unbounded.md"
 
     - alert: RedisEvictionSpike
       expr: rate(redis_evicted_keys_total[5m]) > 10
@@ -270,4 +270,4 @@ groups:
         description: >-
           淘汰本身是健康的（表示上限有在生效），但速率過高代表容量不足，
           cache 命中率會下降，壓力會轉嫁到後端 DB。
-        runbook_url: "https://github.com/benson-code/binance-qa-suite/blob/main/docs/runbooks/redis-unbounded.md"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/redis-unbounded.md"
