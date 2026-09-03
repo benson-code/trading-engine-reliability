@@ -31,6 +31,7 @@ check: ## 執行 CI 的全部品質閘門
 	tools/check-bounded-collections.sh
 	tools/check-bounded-collections-ts.sh
 	tools/check-alert-runbooks.sh
+	tools/check-k8s-manifests.sh
 
 # ── 執行服務 ──────────────────────────────────────────────────────
 .PHONY: run
@@ -131,6 +132,58 @@ docker-stop: ## 停止 payment-api 容器
 .PHONY: docker-size
 docker-size: ## 比較各階段映像檔大小
 	@docker images --format '  {{.Repository}}:{{.Tag}}\t{{.Size}}' | grep -E 'payment-api|temurin|maven' || true
+
+# ── Kubernetes / Helm ─────────────────────────────────────────────
+KUBECONFIG ?= $(HOME)/.kube/config
+KUBECTL    := KUBECONFIG=$(KUBECONFIG) k3s kubectl
+NS         ?= payment
+RELEASE    ?= payment-api
+CHART      := deploy/helm/payment-api
+
+.PHONY: k8s-image
+k8s-image: docker-build ## 把本機 image 匯入 k3s 的 containerd（k3s 不用 Docker 的 image store）
+	docker save $(IMAGE) | sudo k3s ctr images import -
+
+.PHONY: k8s-deploy
+k8s-deploy: ## 用 Helm 部署到 k3s
+	helm upgrade --install $(RELEASE) $(CHART) -n $(NS) --create-namespace --wait --timeout 3m
+	@echo "  NodePort → http://$$(hostname -I | awk '{print $$1}'):30091/api/v1/health"
+
+.PHONY: k8s-status
+k8s-status: ## 叢集 / pod / service / helm release 狀態
+	@echo ""
+	@echo "  ── 節點 ─────────────────────────────────────────"
+	@$(KUBECTL) get nodes --no-headers 2>/dev/null | awk '{printf "    %-12s %-8s %s\n",$$1,$$2,$$5}'
+	@echo ""
+	@echo "  ── Pod ──────────────────────────────────────────"
+	@$(KUBECTL) get pods -n $(NS) --no-headers 2>/dev/null | awk '{printf "    %-32s %-8s restarts=%s\n",$$1,$$3,$$4}'
+	@echo ""
+	@echo "  ── Service ──────────────────────────────────────"
+	@$(KUBECTL) get svc -n $(NS) --no-headers 2>/dev/null | sed 's/^/    /'
+	@echo ""
+	@echo "  ── Helm ─────────────────────────────────────────"
+	@helm list -n $(NS) --no-headers 2>/dev/null | awk '{printf "    %-14s revision=%-3s %s\n",$$1,$$3,$$8}'
+	@echo ""
+
+.PHONY: k8s-lint
+k8s-lint: ## 驗證 Helm chart：lint、算繪、probe 政策（CI 用的同一條）
+	tools/check-k8s-manifests.sh
+
+.PHONY: k8s-diff
+k8s-diff: ## 顯示 chart 算繪後的完整 manifest
+	@helm template $(RELEASE) $(CHART) -n $(NS)
+
+.PHONY: k8s-drill
+k8s-drill: ## 滾動更新演練：持續流量下量測使用者可見的錯誤
+	tools/k8s-rollout-drill.sh $(RELEASE) $(NS)
+
+.PHONY: k8s-logs
+k8s-logs: ## 追蹤所有副本的日誌
+	@$(KUBECTL) logs -n $(NS) -l app.kubernetes.io/name=payment-api --tail=50 -f
+
+.PHONY: k8s-down
+k8s-down: ## 移除 Helm release
+	-helm uninstall $(RELEASE) -n $(NS)
 
 # ── 資料完整性 ────────────────────────────────────────────────────
 .PHONY: integrity
