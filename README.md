@@ -615,6 +615,85 @@ have caught it is the rate of business output.
 
 ---
 
+## Module 5 — Kubernetes Deployment
+
+The service also runs on Kubernetes, deployed with Helm. The interesting part
+is not that it deploys — it is what measuring the deployment revealed.
+
+### What is here
+
+| Path | Contents |
+|---|---|
+| [`deploy/helm/payment-api/`](deploy/helm/payment-api/) | Helm chart — values-driven replicas, image, resources and probe timings |
+| [`deploy/k8s/payment-api.yaml`](deploy/k8s/payment-api.yaml) | The same deployment as plain manifests, for reading without Helm |
+| [`tools/k8s-rollout-drill.sh`](tools/k8s-rollout-drill.sh) | Rolling-update drill that counts client-visible failures under load |
+| [`tools/check-k8s-manifests.sh`](tools/check-k8s-manifests.sh) | CI gate: lint, template, and a probe policy |
+
+Target is a self-hosted **single-node k3s** cluster on the same ARM64 host as
+everything else — small enough to be honest about, large enough to exercise
+the mechanics that matter.
+
+```bash
+make k8s-image     # docker save | k3s ctr images import  (k3s uses containerd)
+make k8s-deploy    # helm upgrade --install --wait
+make k8s-status    # nodes · pods · service · helm release
+make k8s-drill     # rolling-update drill under continuous load
+make k8s-lint      # the same gate CI runs
+```
+
+### Three probes, three different jobs
+
+This is where the incidents in Module 4 feed back into the deployment.
+
+| Probe | On failure | Why it is configured separately here |
+|---|---|---|
+| `startupProbe` | delays the other two | A cold JVM is slow. Without this, `livenessProbe` kills the pod during warm-up and it never starts. |
+| `livenessProbe` | **kills and restarts** the pod | Thresholds are deliberately loose. A false positive destroys the evidence needed to find a root cause — exactly what happened in incident #1. |
+| `readinessProbe` | removes it from the Service, **no restart** | The one worth investing in: it takes a bad replica out of rotation while leaving it alive to be inspected. |
+
+**Kubernetes would not have caught either incident.** For the GC death spiral,
+the JVM's own heap ceiling (`MaxRAMPercentage=75`) sits below the container
+memory limit, so the container never reaches the cgroup limit and is never
+`OOMKilled`. For the silent degradation, the health endpoint kept returning
+`200` correctly — every probe would have passed. That is why the alerting in
+Module 4 measures work progress rather than liveness.
+
+### The rolling-update drill
+
+`maxUnavailable: 0` is a declaration, not a guarantee. The drill runs a rolling
+update under continuous load and counts what the *client* sees:
+
+```
+first run    580 requests    2 non-200   (0.34%)
+after fix    680 requests    0 non-200   (0.00%)
+```
+
+**Cause of the 0.34%:** when a pod enters `Terminating`, `SIGTERM` and endpoint
+removal happen concurrently. Endpoint removal has to propagate to every node's
+iptables rules, and the container was shutting down before that finished — so
+traffic was still being routed to a socket that had already closed.
+
+**Fix:** a `preStop` sleep long enough to cover propagation, with
+`terminationGracePeriodSeconds` set above it.
+
+> The defect is invisible in the manifest. It only appears under sustained
+> traffic, which is the argument for drilling deployments rather than
+> reviewing them.
+
+### CI gate
+
+`tools/check-k8s-manifests.sh` runs in CI and checks four things:
+
+- **K1** `helm lint` passes
+- **K2** the chart actually renders (lint only checks syntax; missing values surface at render time)
+- **K3** every rendered document is a valid Kubernetes object
+- **K4** **every container declares both a liveness and a readiness probe**
+
+K4 is a project-specific policy. A Deployment with no probes asserts that a
+live process is a healthy one — the exact misjudgement behind both incidents.
+
+---
+
 ## Security & Credentials
 
 This is a **public** repository. Anything committed here is published
@@ -677,11 +756,11 @@ by changing it, not by deleting the line that showed it.
 
 | Setting | Value |
 |---|---|
-| `main` branch protection | PR-only · 4 required CI checks · `enforce_admins: true` · force-push & deletion disabled · conversation resolution required |
+| `main` branch protection | PR-only · 5 required CI checks · `enforce_admins: true` · force-push & deletion disabled · conversation resolution required |
 | Repo merge strategy | Squash **disabled** · Merge + Rebase allowed · auto-delete branch on merge |
 | Recommended merge mode | **Rebase merge** — keeps the P1 → P2 → P3 commits as a linear narrative on `main` |
 | CI triggers | `push` to `main`/`develop` · `pull_request` to `main` |
-| Required checks | `Secret Scan` · `Observability Config` · `Java Tests` · `UI Build Check (Next.js 15)` |
+| Required checks | `Secret Scan` · `Kubernetes Manifests` · `Observability Config` · `Java Tests` · `UI Build Check (Next.js 15)` |
 
 > The portfolio's history was built as a phased refactor. `git log --oneline main` shows the four steps from the empty-shell payment-api to the real ACID-backed service in chronological order — the commit log is itself a design document.
 
@@ -709,4 +788,6 @@ by changing it, not by deleting the line that showed it.
 | Alertmanager | Alert routing, grouping and inhibition |
 | Grafana | Dashboards (SRE overview, capacity planning) |
 | Docker Compose | Observability stack orchestration |
+| Kubernetes (k3s) | Container orchestration — Deployment, Service, ConfigMap, probes |
+| Helm | Templated, values-driven deployment of the above |
 | Bash / Make | Operational interface, CI gates, incident forensics |

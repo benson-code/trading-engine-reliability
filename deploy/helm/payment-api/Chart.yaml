@@ -1,0 +1,6 @@
+apiVersion: v2
+name: payment-api
+description: Payment API — deployment chart with liveness/readiness probes derived from two real incidents
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

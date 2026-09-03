@@ -19,6 +19,27 @@ jobs:
       - name: No credentials in version control
         run: tools/check-no-secrets.sh
 
+  # ── Kubernetes / Helm：chart 也是程式碼，要通過 CI ────────────────
+  kubernetes:
+    name: Kubernetes Manifests
+    runs-on: ubuntu-latest
+    needs: secrets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      # chart 的錯誤通常要到 helm install 當下才會爆 —— 那是最糟的
+      # 失敗時機（正在部署、可能已經汰換掉副本）。往前擋在 PR。
+      # 另外強制每個容器都要有 liveness + readiness probe：沒有 probe
+      # 等於宣告「進程活著就算健康」，那正是本專案兩次事故的誤判。
+      - name: Helm lint, template and probe policy
+        run: tools/check-k8s-manifests.sh
+
   # ── 可觀測性平台：設定即程式碼，要通過 CI 才能合併 ─────────────────
   observability:
     name: Observability Config

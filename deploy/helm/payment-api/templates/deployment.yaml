@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "payment-api.fullname" . }}
+  labels: {{- include "payment-api.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: {{- include "payment-api.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: {{ .Values.rollingUpdate.maxUnavailable }}
+      maxSurge: {{ .Values.rollingUpdate.maxSurge }}
+  template:
+    metadata:
+      labels: {{- include "payment-api.selectorLabels" . | nindent 8 }}
+      annotations:
+        # ConfigMap 內容變更時強制重建 pod。
+        # 沒有這一行的話，改了 ConfigMap 但 pod 不會重啟 ——
+        # 設定「已套用」但實際沒生效，是部署最常見的靜默失敗。
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.config.paymentPort | int }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "payment-api.fullname" . }}-config
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          # ⚠️ JVM heap 上限（MaxRAMPercentage 75%）低於 container memory limit，
+          #    所以 JVM 會先撞到自己的天花板，容器碰不到 cgroup limit。
+          #    這正是 GC 死亡螺旋不會觸發 OOMKilled 的原因 ——
+          #    K8s 在那次事故裡救不了我。
+          livenessProbe:
+            httpGet: { path: /api/v1/health, port: http }
+            {{- toYaml .Values.probes.liveness | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /api/v1/health, port: http }
+            {{- toYaml .Values.probes.readiness | nindent 12 }}
+          startupProbe:
+            httpGet: { path: /api/v1/health, port: http }
+            {{- toYaml .Values.probes.startup | nindent 12 }}
+
+          # ── preStop：滾動更新零停機的關鍵 ────────────────────────
+          # pod 進入 Terminating 時，兩件事**同時**發生：
+          #   (a) kubelet 送 SIGTERM 給容器
+          #   (b) endpoint controller 開始把它從 Service 移除
+          # 但 (b) 要傳播到每個節點的 iptables/ipvs 規則，需要時間。
+          # 沒有 preStop 的話，容器在 (b) 完成前就關閉了 ——
+          # 那個空窗期送進來的請求會直接失敗。
+          #
+          # 實測：沒有這段時，580 筆請求中有 2 筆非 200（0.34%）。
+          # sleep 的長度要大於 endpoint 傳播時間，不是拍腦袋。
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep {{ .Values.terminationDelaySeconds }}"]
+      # 給 preStop + 應用自己收尾的總時間，必須大於 preStop 的 sleep
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
