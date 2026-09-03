@@ -3,7 +3,7 @@
 **Status:** 案發現場已保留（PID 26810 未重啟、未 kill）  
 **Captured at:** 2026-07-14T15:01:22Z  
 **Evidence dir:** `/home/ubuntu/qa-incident-2026-07-14/`  
-**Project:** [benson-code/binance-qa-suite](https://github.com/benson-code/binance-qa-suite) → `trading-engine-simulator`
+**Project:** [benson-code/trading-engine-reliability](https://github.com/benson-code/trading-engine-reliability) → `trading-engine-simulator`
 
 ---
 
