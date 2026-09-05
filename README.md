@@ -1,8 +1,8 @@
-# Binance QA Suite
+# Trading Engine Reliability
 
 **English** | [繁體中文](README.zh-TW.md)
 
-Full-cycle Binance QA portfolio: a runnable Payment API with real transactional ACID + idempotency under concurrency, a live BTC trading engine simulator with MySQL persistence, and a real-time Next.js dashboard.
+Reliability engineering on a self-hosted ARM64 host, end to end: a Java payment API and a BTC trading-engine simulator, containerised and deployed to **k3s with a hand-written Helm chart**, wrapped in a **Prometheus / Alertmanager / Grafana** stack whose thresholds were reverse-engineered from **two real incidents on this same infrastructure** — with CI gates that stop those root causes from being reintroduced.
 
 ![CI](https://github.com/benson-code/trading-engine-reliability/actions/workflows/ci.yml/badge.svg)
 
@@ -14,29 +14,33 @@ This repo turns that hard-won instinct into **executable proof at the DB layer**
 
 ### Highlights
 
+- **Kubernetes deployment, drilled rather than declared** — the payment API runs on a self-hosted single-node **k3s v1.36** cluster at two replicas from a hand-written **Helm chart**: values-driven probes and resources, and a ConfigMap checksum annotation so a config change actually forces a rollout instead of silently not applying. `maxUnavailable: 0` is a declaration, not a guarantee — a rolling-update drill under continuous load measured **2 non-200s out of 580 requests (0.34%)**, traced to `SIGTERM` racing endpoint propagation to every node's iptables rules. A `preStop` delay with a matching `terminationGracePeriodSeconds` closed it: re-measured at **680 requests, 0 failures** ([`tools/k8s-rollout-drill.sh`](tools/k8s-rollout-drill.sh)).
 - **Real service, real DB, real ACID** — `JdbcPaymentRepository.createPayment` runs the balance debit and the payment insert in **one transaction**; `UNIQUE(idempotency_key)` is the concurrency backstop. A retry that races and loses the constraint rolls back — **which undoes its debit** — so the account is debited exactly once regardless of how many retries arrive ([`JdbcPaymentRepositoryTest`](payment-api/src/test/java/com/binance/payment/db/JdbcPaymentRepositoryTest.java)).
 - **Concurrency proven, not asserted** — 16 threads call `createPayment` with the same idempotency key; the test ([`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)) asserts exactly-one debit and one `payment_id` on **both** repository implementations.
 - **No WireMock theatre** — every API and integration test exercises the real `PaymentService` through an embedded HTTP server, not a mocked stand-in, so a green suite means the actual service behaves ([commit `668bfc4`](https://github.com/benson-code/trading-engine-reliability/commit/668bfc4) shows the mock-to-real migration).
 - **Payment-grade input & access control** — currency must match the account (`422`), amount precision is bounded to `DECIMAL(18,8)` (`400 INVALID_PRECISION`, no silent truncation), and the payment endpoints require an `X-API-Key` (constant-time compared) when configured ([`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)).
 - **The frontend is tested for the defect class that took the backend down** — `useTradingEngine` held two collections that only ever grew, one of them copying itself on every message. A Pixel 7 endurance test drives 40k orders — roughly 33 minutes of session — and asserts retained heap did not grow with them: **~2,070 KB → 401 KB**, with per-batch time flattening from 2.27x to 0.98x ([`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)).
-- **Observability built from real incidents** — 24 Prometheus alert rules whose thresholds are reverse-engineered from two measured production incidents · 13 runbooks with CI-enforced coverage · Alertmanager routing with four inhibition rules · one-command incident-scene preservation.
-- **CI-enforced quality** — 104 Java tests plus a mobile-web endurance suite · a declarative `BOUNDED-BY` gate that fails any long-lived collection with no eviction and no stated reason it cannot grow · admin-enforced branch protection on `main` · PR-only · four required checks must be green (secret scan first) · rebase-merge preserves the P1/P2/P3 commit narrative.
+- **Observability built from real incidents** — 24 Prometheus alert rules whose thresholds are reverse-engineered from two measured production incidents · 12 runbooks with CI-enforced coverage · Alertmanager routing with four inhibition rules · one-command incident-scene preservation.
+- **Two independent test layers against the running service** — the Java suite in CI, plus a Python (`pytest`) contract / validation / idempotency / concurrency suite and `k6` load scripts. Both boot a throwaway instance on an OS-assigned port and run it `nice -n 15`, so a run can never collide with — or write into — the long-lived services sharing this host ([`python-qa/`](python-qa/README.md)).
+- **CI-enforced quality** — 104 Java tests plus a mobile-web endurance suite · a declarative `BOUNDED-BY` gate that fails any long-lived collection with no eviction and no stated reason it cannot grow · admin-enforced branch protection on `main` · PR-only · five required checks must be green (secret scan first) · rebase-merge preserves the P1/P2/P3 commit narrative.
 
 ---
 
 ## Repository Structure
 
 ```
-binance-qa-suite/                  ← Monorepo root (Maven parent POM)
+trading-engine-reliability/        ← Monorepo root (Maven parent POM)
 ├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 46 tests)
 ├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 58 tests in CI / 66 with MySQL)
 ├── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15) + mobile-web endurance test
+├── python-qa/                     ← Module 5: pytest contract suite + k6 load scripts (hermetic)
 ├── deploy/
+│   ├── helm/                      ← Helm chart for the k3s deployment (probes, preStop, rollout policy)
 │   ├── observability/             ← Module 4: Prometheus · Alertmanager · Grafana · exporters
 │   └── systemd/                   ← Service units and credential handling
 ├── docs/
 │   ├── incident-2026-07-14-*/     ← Incident RCA with preserved evidence + SHA256 manifests
-│   └── runbooks/                  ← 13 alert-response SOPs (CI-enforced coverage)
+│   └── runbooks/                  ← 12 alert-response SOPs (CI-enforced coverage)
 └── tools/                         ← CI quality gates + incident forensics
 ```
 
@@ -538,7 +542,7 @@ checks three invariants:
 - **R2** the file it points at exists
 - **R3** no orphaned runbooks (a document no alert references)
 
-13 runbooks cover all 24 alerts. Each follows the same six sections: trigger
+12 runbooks cover all 24 alerts. Each follows the same six sections: trigger
 conditions · impact · first three minutes · stopping the bleeding · root-cause
 investigation · follow-up. See [`docs/runbooks/`](docs/runbooks/README.md).
 

@@ -1,6 +1,6 @@
 # 事故根因分析報告（RCA）— JVM 記憶體洩漏導致 GC 死亡螺旋
 
-**服務：** `trading-engine-simulator`（`binance-qa-suite` 的模組之一）
+**服務：** `trading-engine-simulator`（`trading-engine-reliability` 的模組之一）
 **主機：** `orion-dev`（Oracle Cloud，aarch64，2 vCPU / 11 GiB RAM）
 **進程：** PID `26810`
 **事故開始：** 2026-07-08 22:57:49 UTC（首次 `OutOfMemoryError`）
