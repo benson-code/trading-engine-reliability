@@ -1,0 +1,14 @@
+# Python automation stack for the BigPay (Fiat) regression suite.
+# Pinned so a fresh `pip install -r requirements.txt` reproduces this env exactly.
+# All pure-Python — no wheels to compile on aarch64.
+
+pytest==8.3.4               # test runner
+pytest-xdist==3.6.1         # -n auto: parallel execution (concurrency/idempotency load)
+pytest-rerunfailures==15.0  # --reruns: quarantine genuinely flaky network cases
+pytest-html==4.1.1          # self-contained HTML report for release sign-off
+allure-pytest==2.13.5       # same Allure reporting the Java suite already uses
+requests==2.32.3            # HTTP client for the REST layer
+jsonschema==4.23.0          # response contract assertions (schema, not just fields)
+python-dotenv==1.0.1        # env-per-stage config (local / staging)
+faker==33.1.0               # test data generation (order ids, users)
+websockets==17.0.1          # WebSocket client for the trading engine's :8093 stream
