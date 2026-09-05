@@ -1,8 +1,8 @@
-# Binance QA Suite
+# Trading Engine Reliability
 
 [English](README.md) | **繁體中文**
 
-一套完整流程（full-cycle）的幣安 QA 作品集，包含三塊：一支可以實際跑起來的支付 API，具備真實的交易型 ACID 跟高併發下的 idempotency（冪等性）；一個搭配 MySQL 做持久化的即時 BTC 交易引擎模擬器；還有一個即時的 Next.js 儀表板。
+在一台自架的 ARM64 主機上，把可靠度工程（reliability engineering）從頭做到尾：一支 Java 支付 API 和一個 BTC 交易引擎模擬器，容器化之後用**手寫的 Helm chart 部署到 k3s**，外面包一層 **Prometheus / Alertmanager / Grafana**，而它的所有閾值都是從**同一套基礎設施上真實發生過的兩次事故**反推出來的 —— 再加上一組 CI 閘門，擋住那些根因被重新引入。
 
 ![CI](https://github.com/benson-code/trading-engine-reliability/actions/workflows/ci.yml/badge.svg)
 
@@ -14,29 +14,33 @@
 
 ### 重點亮點
 
+- **Kubernetes 部署是「演練過」的，不是宣告出來的** —— 支付 API 跑在自架的單節點 **k3s v1.36** 叢集上，兩個副本，由一份手寫的 **Helm chart** 部署：probe 與資源配額全部 values 驅動，並用 ConfigMap checksum annotation 確保設定一改就真的觸發 rollout，而不是靜靜地沒生效。`maxUnavailable: 0` 是宣告，不是保證 —— 在持續流量下做滾動更新演練，實測 **580 筆請求中有 2 筆非 200（0.34%）**，根因是 `SIGTERM` 與 endpoint 移除傳播到各節點 iptables 這兩件事在賽跑。補上 `preStop` 延遲搭配對應的 `terminationGracePeriodSeconds` 之後重測：**680 筆請求，0 失敗**（[`tools/k8s-rollout-drill.sh`](tools/k8s-rollout-drill.sh)）。
 - **真服務、真資料庫、真 ACID** —— `JdbcPaymentRepository.createPayment` 把餘額扣款跟 payment 寫入放在**同一個交易（transaction）**裡；`UNIQUE(idempotency_key)` 則是併發時的最後一道防線。萬一某個重試在競爭中輸了，它會 rollback —— **連自己剛剛的扣款也一起撤掉** —— 所以不管收到幾次重試，帳戶就是剛好扣一次（[`JdbcPaymentRepositoryTest`](payment-api/src/test/java/com/binance/payment/db/JdbcPaymentRepositoryTest.java)）。
 - **併發是「測出來」的，不是嘴上講講** —— 16 條執行緒拿同一個 idempotency key 去打 `createPayment`；測試（[`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)）在**兩種** repository 實作上都驗證了：就是扣一次、就是只有一個 `payment_id`。
 - **不搞 WireMock 那套假把戲** —— 每一個 API 跟整合測試都是透過內嵌 HTTP server 去打**真正的** `PaymentService`，而不是 mock 出來的替身，所以測試全綠就代表服務本身真的跑得動（[commit `668bfc4`](https://github.com/benson-code/trading-engine-reliability/commit/668bfc4) 就是從 mock 遷移到真實服務的過程）。
 - **支付等級的輸入跟權限把關** —— 幣別一定要跟帳戶一致（`422`）；金額精度卡在 `DECIMAL(18,8)`（`400 INVALID_PRECISION`，不會偷偷截斷）；支付端點只要有設定，就一定要帶 `X-API-Key`（用常數時間比較，constant-time）（[`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)）。
 - **把弄垮後端的那類缺陷，也拿去測前端** —— `useTradingEngine` 有兩個只進不出的集合，其中一個每收到一則訊息就把自己整份複製一次。Pixel 7 的耐久測試灌 4 萬筆訂單（大約 33 分鐘的 session），然後驗證 retained heap 沒有跟著長大：**約 2,070 KB → 401 KB**，每批耗時的首末比也從 2.27x 拉平到 0.98x（[`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)）。
-- **可觀測性長在真實事故上** —— 24 條 Prometheus 告警規則，閾值全部由兩次實測事故反推 · 13 份 runbook，覆蓋率由 CI 強制 · Alertmanager 分級路由加 4 條抑制規則 · 一個指令完成事故現場保全。
-- **品質靠 CI 強制把關** —— CI 一次跑 104 個 Java 測試，外加一套 mobile-web 耐久測試 · 一道宣告式的 `BOUNDED-BY` 閘，任何長生命週期集合只要沒有淘汰機制、又沒寫明為什麼不會無限成長，就直接擋下來 · `main` 上了連 admin 都擋不掉的分支保護 · 只能走 PR · 四個必過的檢查一定要全綠（機密掃描排第一）· 用 rebase-merge 保留 P1/P2/P3 的 commit 故事線。
+- **可觀測性長在真實事故上** —— 24 條 Prometheus 告警規則，閾值全部由兩次實測事故反推 · 12 份 runbook，覆蓋率由 CI 強制 · Alertmanager 分級路由加 4 條抑制規則 · 一個指令完成事故現場保全。
+- **兩層互相獨立的測試打在真的跑起來的服務上** —— 除了 CI 裡的 Java 測試，還有一套 Python（`pytest`）的 contract / 驗證 / idempotency / 併發測試，以及 `k6` 壓測腳本。兩者都會自己起一個用完即丟的實例、綁 OS 指派的埠號，並以 `nice -n 15` 執行，所以一次執行絕不會撞到、也絕不會寫進這台機器上長期運行的服務（[`python-qa/`](python-qa/README.md)）。
+- **品質靠 CI 強制把關** —— CI 一次跑 104 個 Java 測試，外加一套 mobile-web 耐久測試 · 一道宣告式的 `BOUNDED-BY` 閘，任何長生命週期集合只要沒有淘汰機制、又沒寫明為什麼不會無限成長，就直接擋下來 · `main` 上了連 admin 都擋不掉的分支保護 · 只能走 PR · 五個必過的檢查一定要全綠（機密掃描排第一）· 用 rebase-merge 保留 P1/P2/P3 的 commit 故事線。
 
 ---
 
 ## 儲存庫結構（Repository Structure）
 
 ```
-binance-qa-suite/                  ← Monorepo 根目錄（Maven parent POM）
+trading-engine-reliability/        ← Monorepo 根目錄（Maven parent POM）
 ├── payment-api/                   ← 模組 1：可執行的支付 API + QA 測試（Java 17, 46 tests）
 ├── trading-engine-simulator/      ← 模組 2：BTC 交易引擎（Java 17, CI 58 tests / 含 MySQL 66 tests）
 ├── trading-engine-ui/             ← 模組 3：即時儀表板（Next.js 15）+ mobile-web 耐久測試
+├── python-qa/                     ← 模組 5：pytest 契約測試 + k6 壓測腳本（hermetic）
 ├── deploy/
+│   ├── helm/                      ← k3s 部署用的 Helm chart（probe、preStop、滾動更新策略）
 │   ├── observability/             ← 模組 4：Prometheus · Alertmanager · Grafana · exporters
 │   └── systemd/                   ← 服務 unit 與憑證管理
 ├── docs/
 │   ├── incident-2026-07-14-*/     ← 事故 RCA，含保留證據與 SHA256 manifest
-│   └── runbooks/                  ← 13 份告警處理 SOP（覆蓋率由 CI 強制）
+│   └── runbooks/                  ← 12 份告警處理 SOP（覆蓋率由 CI 強制）
 └── tools/                         ← CI 品質閘門 + 事故現場保全
 ```
 
@@ -518,7 +522,7 @@ JVM 指標由 [`jstat-exporter.sh`](deploy/observability/jstat-exporter.sh)
 - **R2** 該 URL 指向的檔案確實存在
 - **R3** 沒有孤兒 runbook（存在卻沒有任何告警引用）
 
-13 份 runbook 覆蓋全部 24 條告警，每份都是同樣六段：
+12 份 runbook 覆蓋全部 24 條告警，每份都是同樣六段：
 觸發條件 · 影響 · 立即確認（前三分鐘）· 止血 · 根因調查 · 事後。
 見 [`docs/runbooks/`](docs/runbooks/README.md)。
 
