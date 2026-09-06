@@ -75,7 +75,7 @@ journalctl -u unattended-upgrades --since "24 hours ago" | tail -30
 
 ```bash
 # Restart the generator through the API (leaves the process running, preserves the scene)
-curl -s -X POST http://localhost:8092/api/v1/control/start
+curl -s -X POST http://localhost:8092/api/v1/engine/start
 
 # Confirm recovery
 sleep 30 && curl -s http://localhost:8092/api/v1/status | jq '.ordersGenerated'

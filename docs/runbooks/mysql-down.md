@@ -32,7 +32,7 @@ sudo systemctl start mysql
 mysqladmin -u binance_user -p status
 
 # Once MySQL is back, confirm the generator came back too
-curl -s -X POST http://localhost:8092/api/v1/control/start
+curl -s -X POST http://localhost:8092/api/v1/engine/start
 ```
 
 ## Follow-up

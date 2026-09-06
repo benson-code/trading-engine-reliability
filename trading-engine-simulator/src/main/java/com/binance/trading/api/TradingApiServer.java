@@ -2,6 +2,7 @@ package com.binance.trading.api;
 
 import com.binance.trading.db.DBOrderRepository;
 import com.binance.trading.engine.TradingEngine;
+import com.binance.trading.metrics.EngineMetrics;
 import com.binance.trading.model.Order;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
@@ -36,6 +37,7 @@ public class TradingApiServer {
     private final TradingEngine    engine;
     private final DBOrderRepository db;
     private final ObjectMapper     mapper = new ObjectMapper();
+    private final EngineMetrics    metrics;
     private final int              port;
 
     public TradingApiServer(int port, TradingEngine engine) throws IOException {
@@ -46,6 +48,7 @@ public class TradingApiServer {
         this.port   = port;
         this.engine = engine;
         this.db     = db;
+        this.metrics = new EngineMetrics(engine);
         this.server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
 
         server.createContext("/api/v1/engine",            this::handleEngine);
@@ -53,6 +56,8 @@ public class TradingApiServer {
         server.createContext("/api/v1/orders/history",    this::handleHistory);
         server.createContext("/api/v1/orders",            this::handleOrders);
         server.createContext("/api/v1/status",            this::handleStatus);
+        // Scrape traffic, not caller traffic — no CORS, no auth, no JSON.
+        server.createContext("/metrics",                  this::handleMetrics);
         server.setExecutor(Executors.newFixedThreadPool(8));
     }
 
@@ -184,6 +189,14 @@ public class TradingApiServer {
     }
 
     // ── GET /api/v1/status ────────────────────────────────────────────────────
+
+    private void handleMetrics(HttpExchange ex) throws IOException {
+        byte[] body = metrics.render().getBytes(StandardCharsets.UTF_8);
+        ex.getResponseHeaders().set("Content-Type",
+                "text/plain; version=0.0.4; charset=utf-8");
+        ex.sendResponseHeaders(200, body.length);
+        try (OutputStream os = ex.getResponseBody()) { os.write(body); }
+    }
 
     private void handleStatus(HttpExchange ex) throws IOException {
         cors(ex);

@@ -47,11 +47,14 @@ groups:
 
     # SLI 3 —— 工作進度：過去 5 分鐘真的有產出訂單
     #
-    # 刻意不加 `and engine_up == 1`。行程掛掉時工作當然也沒前進，
+    # 刻意不加 `and up{job="trading-engine"} == 1`。行程掛掉時工作當然也沒前進，
     # 那同樣是一次工作進度失效。把行程活著當成免責條件，
     # 正是事故 #2 六天沒被發現的那個思考錯誤。
+    #
+    # job 明確釘在引擎自己的 /metrics。沒釘的話，任何第二個來源（例如有人
+    # 把 textfile 的 engine_* 加回來）都會讓這條 SLI 變成兩條序列，錯誤預算跟著翻倍。
     - record: slo:engine_work_progress:good
-      expr: (rate(engine_orders_generated_total[5m]) > bool 0)
+      expr: (rate(engine_orders_generated_total{job="trading-engine"}[5m]) > bool 0)
 
 # ─────────────────────────────────────────────────────────────────
 #  第二層：各視窗的達成率

@@ -94,30 +94,7 @@ EOF
 
 mv "$TMP" "$OUT_DIR/jvm.prom"
 
-# ── 業務層指標：直接打引擎的 REST API ──────────────────────────
-# 從主機端採樣而非讓 Prometheus 容器連進來（Oracle Cloud 的 iptables 會擋 bridge → host）
-STATUS=$(curl -s -m 5 http://localhost:8092/api/v1/status 2>/dev/null)
-TMP2="$OUT_DIR/engine.prom.$$"
-if [ -n "$STATUS" ]; then
-  python3 - "$STATUS" > "$TMP2" <<'PYEOF'
-import json,sys
-try: d=json.loads(sys.argv[1])
-except Exception: sys.exit(1)
-running = 1 if str(d.get("status","")).upper()=="RUNNING" else 0
-m=[("engine_up","gauge","REST API 是否可達",1),
-   ("engine_running","gauge","訂單產生器是否運行中 (1=RUNNING)",running),
-   ("engine_orders_generated_total","counter","累計產生訂單數",d.get("total_generated",0)),
-   ("engine_orders_total","gauge","目前保留的訂單數 — 無界成長時這條會一路往上",d.get("total_orders",0)),
-   ("engine_orders_unique","gauge","唯一訂單數",d.get("unique_orders",0)),
-   ("engine_duplicate_count","gauge","重複訂單數",d.get("duplicate_count",0)),
-   ("engine_cache_size","gauge","快取大小 — 有界化後應該收斂",d.get("cache_size",0)),
-   ("engine_cache_hit_rate","gauge","快取命中率",d.get("cache_hit_rate",0.0)),
-   ("engine_last_price","gauge","最新成交價",d.get("last_price",0))]
-for n,t,h,v in m:
-    print(f"# HELP {n} {h}\n# TYPE {n} {t}\n{n} {v}")
-PYEOF
-  [ -s "$TMP2" ] && mv "$TMP2" "$OUT_DIR/engine.prom" || rm -f "$TMP2"
-else
-  printf '# HELP engine_up REST API 是否可達\n# TYPE engine_up gauge\nengine_up 0\n' > "$TMP2"
-  mv "$TMP2" "$OUT_DIR/engine.prom"
-fi
+# ── 業務層指標：已改由引擎自己在 /metrics 提供（job=trading-engine）──
+# 2026-09-06 移除。原本這裡 curl 引擎的 /api/v1/status 再轉成 engine.prom，
+# 六跳、30 秒 cron，而且從來不是獨立觀測（數字本來就是問引擎要的）。
+# 本腳本只保留 jvm_*：jstat 從外部 attach，是 GC 飽和時仍在的獨立觀測者。

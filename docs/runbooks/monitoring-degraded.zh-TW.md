@@ -60,7 +60,7 @@ heartbeat 服務（Dead Man's Snitch、Healthchecks.io 之類），由對方在
 
 ## ⚠️ 凍結的指標比消失的指標更危險
 
-`jvm.prom` 與 `engine.prom` 由 cron 每 30 秒寫入，node_exporter 再讀出來。
+`jvm.prom` 由 cron 每 30 秒寫入，node_exporter 再讀出來。
 cron 一旦掛掉或腳本開始失敗，檔案就停止更新 ——
 **但 node_exporter 會永遠繼續提供它最後讀到的那組值。**
 
@@ -70,7 +70,7 @@ cron 一旦掛掉或腳本開始失敗，檔案就停止更新 ——
 |---|---|
 | `jvm_jstat_attach_success` 卡在 `1` | **`JstatAttachFailed` 永遠不可能觸發** —— 而那條告警存在的唯一理由，就是 attach 失敗是事故 #1 的關鍵診斷訊號 |
 | `jvm_oldgen_utilization_ratio` 卡在健康值 | JVM 可以一路走進死亡螺旋，儀表板全綠 |
-| `engine_orders_generated_total` 卡住 | `EngineNotProgressing` 會叫，然後怪罪引擎 —— 但死的其實是採集器 |
+| *(歷史)* `engine_orders_generated_total` 卡住 | 2026-09-06 之前引擎計數器也走這個檔案；採集器死掉時 `EngineNotProgressing` 會叫，然後怪罪引擎。現在改由引擎自己的 `/metrics`（`job="trading-engine"`）提供，這條路徑只剩 `jvm.prom` |
 
 `TextfileCollectorStale` 是唯一能區分「服務沒事」與「看著服務的那隻眼睛閉上了」的東西。
 這個盲點有對應的可執行測試，見

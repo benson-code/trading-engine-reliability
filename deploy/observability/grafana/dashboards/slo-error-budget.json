@@ -191,7 +191,7 @@
    },
    "targets": [
     {
-     "expr": "avg_over_time((rate(engine_orders_generated_total[5m]) > bool 0)[3d:1m])",
+     "expr": "avg_over_time((rate(engine_orders_generated_total{job=\"trading-engine\"}[5m]) > bool 0)[3d:1m])",
      "refId": "A",
      "legendFormat": "目標 99%"
     }

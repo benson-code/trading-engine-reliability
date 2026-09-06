@@ -66,8 +66,7 @@ the heartbeat first.
 
 ## ⚠️ A frozen metric is worse than a missing one
 
-`jvm.prom` and `engine.prom` are written by cron every 30s and read by
-node_exporter. If cron dies or the script starts failing, the files stop being
+`jvm.prom` is written by cron every 30s and read by node_exporter. If cron dies or the script starts failing, the files stop being
 updated — **but node_exporter keeps serving the last values it read, forever.**
 
 The metrics do not disappear. They freeze. And a frozen metric reads as healthy:
@@ -76,7 +75,7 @@ The metrics do not disappear. They freeze. And a frozen metric reads as healthy:
 |---|---|
 | `jvm_jstat_attach_success` stuck at `1` | **`JstatAttachFailed` can never fire** — the alert that exists precisely because attach failure was the key diagnostic in incident #1 |
 | `jvm_oldgen_utilization_ratio` stuck at a healthy value | The JVM can walk into a death spiral with a green dashboard |
-| `engine_orders_generated_total` stuck | `EngineNotProgressing` fires and blames the engine, when the collector is what died |
+| *(historical)* `engine_orders_generated_total` stuck | Until 2026-09-06 the engine counters also came through this file; `EngineNotProgressing` would have fired and blamed the engine when the collector was what died. They now come from the engine's own `/metrics` (`job="trading-engine"`), so only `jvm.prom` remains on this path |
 
 `TextfileCollectorStale` is the only thing that separates "the service is fine"
 from "the eye watching the service closed". There is an executable test for this

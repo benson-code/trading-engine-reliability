@@ -59,13 +59,13 @@ groups:
 - name: work-progress
   rules:
     - alert: EngineNotProgressing
-      expr: engine_up == 1 and rate(engine_orders_generated_total[10m]) == 0
+      expr: up{job="trading-engine"} == 1 and rate(engine_orders_generated_total{job="trading-engine"}[10m]) == 0
       for: 10m
       labels: { severity: critical, category: work-progress, service: trading-engine }
       annotations:
         summary: "trading-engine 可達但訂單產生器沒有前進"
         description: >-
-          REST API 有回應（engine_up=1），但 10 分鐘內累計訂單數完全沒有增加。
+          採集得到引擎（up=1，Prometheus 自己觀測到的，不是服務自報），但 10 分鐘內累計訂單數完全沒有增加。
           2026-07 的第二次事故就是這個形狀：unattended-upgrades 重啟 MySQL 連帶
           SIGTERM 掉服務，systemd 成功重啟了進程，但 worker thread 被
           in-memory AtomicBoolean 擋住沒有恢復，靜默六天無人察覺。
@@ -73,7 +73,7 @@ groups:
         runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/engine-not-progressing.md"
 
     - alert: EngineWorkerStopped
-      expr: engine_up == 1 and engine_running == 0
+      expr: up{job="trading-engine"} == 1 and engine_running{job="trading-engine"} == 0
       for: 5m
       labels: { severity: critical, category: work-progress, service: trading-engine }
       annotations:
@@ -82,7 +82,7 @@ groups:
         runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/engine-not-progressing.md"
 
     - alert: DatabaseWriteStalled
-      expr: engine_running == 1 and rate(engine_orders_generated_total[15m]) == 0
+      expr: engine_running{job="trading-engine"} == 1 and rate(engine_orders_generated_total{job="trading-engine"}[15m]) == 0
       for: 15m
       labels: { severity: critical, category: work-progress, service: trading-engine }
       annotations:

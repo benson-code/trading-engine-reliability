@@ -73,7 +73,7 @@ journalctl -u unattended-upgrades --since "24 hours ago" | tail -30
 
 ```bash
 # 透過 API 重新啟動產生器（不重啟進程，保留現場）
-curl -s -X POST http://localhost:8092/api/v1/control/start
+curl -s -X POST http://localhost:8092/api/v1/engine/start
 
 # 確認恢復
 sleep 30 && curl -s http://localhost:8092/api/v1/status | jq '.ordersGenerated'

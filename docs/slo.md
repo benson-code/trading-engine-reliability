@@ -197,6 +197,13 @@ the numbers above should be read:
    SLI, how to derive a threshold, how to design burn-rate alerting — not that
    this service has production-grade reliability.
 
+4. **The work-progress history restarts on 2026-09-06.** The 115-minute gap on
+   09-03 was measured from the textfile source (`job="node"`). The engine now
+   serves the same counter itself (`job="trading-engine"`), and the SLI is pinned
+   to that source so a second source can never double the budget. `make slo`
+   therefore reads from 09-06 onward; the `job="node"` series stays queryable
+   in Prometheus for the 30-day retention if the 09-03 figure needs reproducing.
+
 ---
 
 ## Related

@@ -25,7 +25,7 @@ q() {
 declare -A SLI TARGET
 SLI[payment_api_availability]="avg_over_time(probe_success{instance=\"$API\"}[$W])"
 SLI[payment_api_latency]="avg_over_time((probe_duration_seconds{instance=\"$API\"} < bool 0.25)[$W:15s])"
-SLI[engine_work_progress]="avg_over_time((rate(engine_orders_generated_total[5m]) > bool 0)[$W:1m])"
+SLI[engine_work_progress]="avg_over_time((rate(engine_orders_generated_total{job=\"trading-engine\"}[5m]) > bool 0)[$W:1m])"
 TARGET[payment_api_availability]=0.999
 TARGET[payment_api_latency]=0.995
 TARGET[engine_work_progress]=0.99

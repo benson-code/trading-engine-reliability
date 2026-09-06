@@ -51,6 +51,22 @@ scrape_configs:
       - targets: ['127.0.0.1:8094']
         labels: { deployment: container }
 
+  # ── 應用層：trading-engine 自己暴露的業務指標 ────────────────────
+  #
+  #    engine_* 以前的路徑：引擎記憶體 → JSON /status → cron curl → python
+  #    → .prom 檔 → node_exporter → Prometheus。六跳、30 秒 cron，
+  #    而且從來不是獨立觀測 —— 腳本本來就是問引擎自己要數字。
+  #    現在引擎直接在 /metrics 提供，15 秒粒度，少掉 cron 這個相依。
+  #
+  #    ⚠ 這個 job 刻意「沒有」jvm_*：那些留給 jstat textfile（node job）。
+  #    jstat 從外部 attach，是 GC 飽和時仍活著的獨立觀測者；
+  #    而且同名指標若兩邊都有，同一個 JVM 會產生兩條告警。
+  - job_name: trading-engine
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['127.0.0.1:8092']
+        labels: { service: trading-engine }
+
   # ── 主機層：CPU / 記憶體 / 磁碟 / 網路 ──────────────────────────
   #    同時透過 textfile collector 帶入 jstat 採樣的 JVM 指標
   #    與 trading-engine 的業務指標（jvm.prom / engine.prom）

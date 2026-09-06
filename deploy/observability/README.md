@@ -41,7 +41,7 @@ Layer 0  被監控 ── payment-api · trading-engine · MySQL · Redis · 主
 | Prometheus | 9090 | 0.0.0.0 | 採集與規則評估 |
 | Alertmanager | 9093 | 0.0.0.0 | 告警路由與收斂 |
 | Grafana | 3001 | 0.0.0.0 | 視覺化（3000 被 next dev 佔用）|
-| node_exporter | 9100 | 0.0.0.0 | 主機指標 + textfile collector |
+| node_exporter | 9100 | 0.0.0.0 | 主機指標 + textfile collector（僅 jvm.prom）|
 | blackbox_exporter | 9115 | 127.0.0.1 | 黑箱探測 |
 | mysqld_exporter | 9104 | 127.0.0.1 | MySQL 指標 |
 | redis_exporter | 9121 | 127.0.0.1 | Redis 指標 |
@@ -75,7 +75,8 @@ make runbooks        # 檢查告警 ↔ SOP 覆蓋率
 | **黑箱** | blackbox_exporter | 使用者打不打得到、快不快 | 只打 `/health` 時看不見 `/payments` 在噴 500 |
 | **合成交易** | blackbox `payment_create` 模組 | 真實交易路徑走不走得通 | 需要服務願意收請求 |
 | **白箱（服務自報）** | payment-api `/metrics` | 請求速率、錯誤率、延遲分布 | 事故 #1 那種 GC 飽和會把它一起餓死 |
-| **外部採集器** | cron → textfile → node_exporter | JVM / GC / 引擎進度 | cron 掛掉時指標會**凍結**而非消失 |
+| **外部採集器** | cron → jstat → textfile → node_exporter | JVM / GC（僅此） | cron 掛掉時指標會**凍結**而非消失 |
+| **引擎自報** | trading-engine `/metrics` | 訂單進度、保留量、快取 | 同白箱：GC 飽和時會一起餓死 |
 
 最後一項是 2026-09-06 補上 `TextfileCollectorStale` 的原因：
 凍結的指標讀起來是健康的，而 `jvm_jstat_attach_success` 一旦凍在 1，

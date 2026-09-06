@@ -117,6 +117,17 @@ public class OrderBook {
         return orderIdFrequency.values().stream().anyMatch(c -> c > 1);
     }
 
+    /**
+     * How many distinct ids appear more than once, without building the list.
+     *
+     * <p>{@link #findDuplicateOrderIds()} allocates a List on every call. That is
+     * fine for an API request; it is wasteful for a metrics scrape every 15
+     * seconds, which only ever needs the size. Same scan, no garbage.
+     */
+    public long duplicateOrderIdCount() {
+        return orderIdFrequency.values().stream().filter(v -> v > 1).count();
+    }
+
     public List<String> findDuplicateOrderIds() {
         return orderIdFrequency.entrySet().stream()
             .filter(e -> e.getValue() > 1)

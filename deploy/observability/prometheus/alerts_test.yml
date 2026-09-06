@@ -86,17 +86,17 @@ tests:
   # ────────────────────────────────────────────────────────────────
   # 3. 事故 #2 的簽名：服務可達，但工作沒有前進
   #
-  #    engine_up 全程為 1（API 有回應），
+  #    up{job="trading-engine"} 全程為 1（Prometheus 採集得到引擎），
   #    但累計訂單數完全不動 —— 這正是 2026-07 靜默六天的形狀，
   #    也是 2026-09-03 又重演一次的形狀。
   # ────────────────────────────────────────────────────────────────
   - interval: 1m
     name: "事故 #2：可達但工作停滯"
     input_series:
-      - series: 'engine_up{instance="orion-dev",job="node"}'
+      - series: 'up{instance="127.0.0.1:8092",job="trading-engine",service="trading-engine"}'
         values: '1x30'
       # 計數器完全不增加
-      - series: 'engine_orders_generated_total{instance="orion-dev",job="node"}'
+      - series: 'engine_orders_generated_total{instance="127.0.0.1:8092",job="trading-engine",service="trading-engine"}'
         values: '5032116x30'
     alert_rule_test:
       # for: 10m + rate 需要 10m 視窗，所以 25 分鐘後必然成立
@@ -107,11 +107,11 @@ tests:
               severity: critical
               category: work-progress
               service: trading-engine
-              instance: orion-dev
-              job: node
+              instance: 127.0.0.1:8092
+              job: trading-engine
             exp_annotations:
               summary: "trading-engine 可達但訂單產生器沒有前進"
-              description: "REST API 有回應（engine_up=1），但 10 分鐘內累計訂單數完全沒有增加。 2026-07 的第二次事故就是這個形狀：unattended-upgrades 重啟 MySQL 連帶 SIGTERM 掉服務，systemd 成功重啟了進程，但 worker thread 被 in-memory AtomicBoolean 擋住沒有恢復，靜默六天無人察覺。 所有 liveness check 在那六天內全部通過。"
+              description: "採集得到引擎（up=1，Prometheus 自己觀測到的，不是服務自報），但 10 分鐘內累計訂單數完全沒有增加。 2026-07 的第二次事故就是這個形狀：unattended-upgrades 重啟 MySQL 連帶 SIGTERM 掉服務，systemd 成功重啟了進程，但 worker thread 被 in-memory AtomicBoolean 擋住沒有恢復，靜默六天無人察覺。 所有 liveness check 在那六天內全部通過。"
               runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/engine-not-progressing.md"
 
   # ────────────────────────────────────────────────────────────────
@@ -122,9 +122,9 @@ tests:
   - interval: 1m
     name: "訂單正常產生時不觸發"
     input_series:
-      - series: 'engine_up{instance="orion-dev",job="node"}'
+      - series: 'up{instance="127.0.0.1:8092",job="trading-engine",service="trading-engine"}'
         values: '1x30'
-      - series: 'engine_orders_generated_total{instance="orion-dev",job="node"}'
+      - series: 'engine_orders_generated_total{instance="127.0.0.1:8092",job="trading-engine",service="trading-engine"}'
         values: '5032116+1200x30'
     alert_rule_test:
       - eval_time: 25m

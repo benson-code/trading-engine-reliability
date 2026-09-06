@@ -30,7 +30,7 @@ sudo systemctl start mysql
 mysqladmin -u binance_user -p status
 
 # MySQL 回來之後，務必確認產生器也回來了
-curl -s -X POST http://localhost:8092/api/v1/control/start
+curl -s -X POST http://localhost:8092/api/v1/engine/start
 ```
 
 ## 事後
