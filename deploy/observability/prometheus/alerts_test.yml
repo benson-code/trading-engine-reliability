@@ -225,6 +225,27 @@ tests:
         exp_alerts: []
 
   # ────────────────────────────────────────────────────────────────
+  # 8b. 設定重載失敗要叫；成功不叫
+  # ────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "Alertmanager reload 失敗時觸發"
+    input_series:
+      - series: 'alertmanager_config_last_reload_successful{instance="127.0.0.1:9093",job="alertmanager"}'
+        values: '1x5 0x10'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: ConfigReloadFailed
+        exp_alerts:
+          - exp_labels: { severity: critical, category: meta, service: alertmanager, instance: 127.0.0.1:9093, job: alertmanager }
+            exp_annotations:
+              summary: "alertmanager 設定重載失敗 —— 仍在跑上一份能用的設定"
+              description: "設定重載失敗代表這個元件仍在跑上一份能用的設定，而磁碟上那份是壞的。你以為生效的規則、路由、探測模組全都沒有生效。先跑 make obs-validate 找出語法錯誤；注意這條抓不到「改了沒 reload」—— 那要靠 make obs-mounts。"
+              runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+      - eval_time: 4m
+        alertname: ConfigReloadFailed
+        exp_alerts: []
+
+  # ────────────────────────────────────────────────────────────────
   # 9. 死人開關必須永遠在響
   #
   #    它是唯一一條「不響才是異常」的告警。如果哪天有人不小心

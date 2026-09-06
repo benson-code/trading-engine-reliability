@@ -2,7 +2,7 @@
 
 **[English](monitoring-degraded.md)** | 繁體中文
 
-> **對應告警**：`DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `TextfileCollectorStale` · `TextfileCollectorError` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing` · `NotifierDeliveryFailing` · `HeartbeatNotConfigured`
+> **對應告警**：`DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `TextfileCollectorStale` · `TextfileCollectorError` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing` · `NotifierDeliveryFailing` · `HeartbeatNotConfigured` · `ConfigReloadFailed`
 > **嚴重度**：critical / warning（心跳為 none）
 > **來源**：把事故 #1 與 #2 的教訓，套用在監控堆疊自己身上
 
@@ -34,6 +34,7 @@
 | `AlertmanagerNotificationFailing` | `increase(alertmanager_notifications_failed_total[10m]) > 0` | 5m | critical |
 | `NotifierDeliveryFailing` | `increase(notifier_deliveries_total{channel="line",outcome="error"}[15m]) > 0` | 5m | critical |
 | `HeartbeatNotConfigured` | `notifier_channel_configured{channel="heartbeat"} == 0` | 10m | warning |
+| `ConfigReloadFailed` | `prometheus_config_last_reload_successful == 0 or alertmanager_config_last_reload_successful == 0` | 2m | critical |
 
 `ScrapeTargetDown` 排除 `job="node"`，因為主機本身由
 [host-down](host-down.zh-TW.md) 負責。
@@ -124,6 +125,14 @@ docker compose -f deploy/observability/docker-compose.yml \
 > **重載不能取代檢查。** 這次是 `curl -X POST .../-/reload` 回 500 才暴露出來 ——
 > 但一個從來沒被觸發過的 reload,永遠不會告訴你任何事。
 > `make obs-mounts` 存在的理由就是這個。
+
+**同一件事的第二種發生方式 —— 同一天找到。** `make obs-reload` 以前只重載 Prometheus。
+Alertmanager 從 09-02 到 09-06 一直跑啟動時的設定：某個已合併 PR 裡的心跳路由、
+`heartbeat` 接收端、抑制規則的排除，**沒有一項生效過**。mount 沒斷、語法正確、
+`config_last_reload_successful` = 1 —— 因為上一次 reload 就是啟動那次，它成功了。
+唯一的破綻是**檔案 mtime 晚於上次成功 reload 的時間戳**，`make obs-mounts` 現在會對
+Prometheus、Alertmanager、blackbox 三者比對。`make obs-reload` 改為重載三者並在之後跑這個檢查。
+`ConfigReloadFailed` 負責另一半：reload 有做、但被拒絕。
 
 ---
 

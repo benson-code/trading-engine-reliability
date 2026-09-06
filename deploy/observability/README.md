@@ -101,7 +101,7 @@ make runbooks        # 檢查告警 ↔ SOP 覆蓋率
 | `saturation` | 資源快用完了嗎？（USE）| 4 |
 | `capacity` | 多久之後會用完？（predict_linear）| 4 |
 | `dependencies` | 相依元件還在嗎？| 6 |
-| `meta` | 監控系統自己還活著嗎？（含死人開關、採集器凍結、最後一哩）| 10 |
+| `meta` | 監控系統自己還活著嗎？（含死人開關、採集器凍結、最後一哩、設定重載）| 11 |
 | `application` | 請求真的成功了嗎？（服務自報的 RED）| 1 |
 | `slo-burn-rate` | 錯誤預算燒得多快？（另存於 slo.yml）| 6 |
 
@@ -133,7 +133,7 @@ Alertmanager 設有 4 條抑制規則，避免一次故障噴出數十則通知�
 ## 處理 SOP
 
 **每一條告警都必須有 `runbook_url`，由 CI 強制檢查。**
-見 [`docs/runbooks/`](../../docs/runbooks/README.zh-TW.md)（15 份，覆蓋 41 條告警）。
+見 [`docs/runbooks/`](../../docs/runbooks/README.zh-TW.md)（15 份，覆蓋 42 條告警）。
 
 `tools/check-alert-runbooks.sh` 檢查三件事：
 - R1 每條 alert 都有 `runbook_url`

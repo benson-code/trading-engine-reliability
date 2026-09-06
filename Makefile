@@ -91,11 +91,20 @@ obs-mounts: ## 檢查監控容器讀到的設定與磁碟一致（bind mount 未
 	tools/check-obs-mounts.sh
 
 .PHONY: obs-reload
-obs-reload: ## 熱載入 Prometheus 設定與告警規則（不重啟容器）
+obs-reload: ## 熱載入 Prometheus / Alertmanager / blackbox 設定（不重啟容器）
+	@# 2026-09-06 之前這裡只重載 Prometheus。Alertmanager 從 09-02 起一直跑啟動時的
+	@# 設定 —— 心跳路由、抑制規則的排除，改了四天沒有一項生效，而所有檢查都是綠的。
+	@# 每個元件各自驗證、各自重載、各自確認成功；任何一段失敗就中止並說是哪一段。
 	@docker compose -f $(OBS_DIR)/docker-compose.yml exec -T prometheus \
 		promtool check config /etc/prometheus/prometheus.yml >/dev/null \
-		&& echo "  ✓ 設定語法正確" || { echo "  ✗ 設定有誤，中止"; exit 1; }
-	@curl -sf -X POST http://127.0.0.1:9090/-/reload && echo "  ✓ Prometheus 已熱載入"
+		&& echo "  ✓ Prometheus 設定語法正確" || { echo "  ✗ Prometheus 設定有誤，中止"; exit 1; }
+	@docker compose -f $(OBS_DIR)/docker-compose.yml exec -T alertmanager \
+		amtool check-config /etc/alertmanager/alertmanager.yml >/dev/null \
+		&& echo "  ✓ Alertmanager 設定語法正確" || { echo "  ✗ Alertmanager 設定有誤，中止"; exit 1; }
+	@curl -sf -X POST http://127.0.0.1:9090/-/reload && echo "  ✓ Prometheus 已熱載入" || { echo "  ✗ Prometheus reload 失敗"; exit 1; }
+	@curl -sf -X POST http://127.0.0.1:9093/-/reload && echo "  ✓ Alertmanager 已熱載入" || { echo "  ✗ Alertmanager reload 失敗"; exit 1; }
+	@curl -sf -X POST http://127.0.0.1:9115/-/reload && echo "  ✓ blackbox 已熱載入" || { echo "  ✗ blackbox reload 失敗（mount 斷了？make obs-mounts）"; exit 1; }
+	@tools/check-obs-mounts.sh >/dev/null 2>&1 && echo "  ✓ 三者執行中的設定皆不舊於磁碟" || { echo "  ✗ 仍有元件跑舊設定 —— make obs-mounts 看細節"; exit 1; }
 
 .PHONY: obs-validate
 obs-validate: ## 驗證 Prometheus / Alertmanager 設定與告警規則語法

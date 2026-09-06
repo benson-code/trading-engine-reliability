@@ -2,7 +2,7 @@
 
 **English** | [繁體中文](monitoring-degraded.zh-TW.md)
 
-> **Alerts**: `DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `TextfileCollectorStale` · `TextfileCollectorError` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing` · `NotifierDeliveryFailing` · `HeartbeatNotConfigured`
+> **Alerts**: `DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `TextfileCollectorStale` · `TextfileCollectorError` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing` · `NotifierDeliveryFailing` · `HeartbeatNotConfigured` · `ConfigReloadFailed`
 > **Severity**: critical / warning (and `none` for the heartbeat)
 > **Origin**: the lesson of incidents #1 and #2, applied to the monitoring stack itself
 
@@ -36,6 +36,7 @@ turns red, because no data is arriving to turn it red.
 | `AlertmanagerNotificationFailing` | `increase(alertmanager_notifications_failed_total[10m]) > 0` | 5m | critical |
 | `NotifierDeliveryFailing` | `increase(notifier_deliveries_total{channel="line",outcome="error"}[15m]) > 0` | 5m | critical |
 | `HeartbeatNotConfigured` | `notifier_channel_configured{channel="heartbeat"} == 0` | 10m | warning |
+| `ConfigReloadFailed` | `prometheus_config_last_reload_successful == 0 or alertmanager_config_last_reload_successful == 0` | 2m | critical |
 
 `job="node"` is excluded from `ScrapeTargetDown` because
 [host-down](host-down.md) already covers the host itself.
@@ -135,6 +136,17 @@ docker compose -f deploy/observability/docker-compose.yml \
 > Reloading is not a substitute for checking. `curl -X POST .../-/reload`
 > returning 500 is what exposed this — but a reload that is never attempted
 > will never tell you anything, which is why `make obs-mounts` exists.
+
+**Second way the same thing happens — found the same day.** `make obs-reload`
+only reloaded Prometheus. Alertmanager ran its startup config from 09-02 to
+09-06: the heartbeat route, the `heartbeat` receiver and the inhibition
+exclusions from a merged PR were never live. Mount fine, syntax fine,
+`config_last_reload_successful` = 1 — because the last reload *was* the
+startup one, and it succeeded. The only tell is **file mtime later than the
+last successful reload timestamp**, which `make obs-mounts` now compares for
+Prometheus, Alertmanager and blackbox. `make obs-reload` reloads all three and
+runs that check afterwards. `ConfigReloadFailed` covers the other half: a
+reload that was attempted and rejected.
 
 ---
 

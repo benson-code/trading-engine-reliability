@@ -412,6 +412,19 @@ groups:
           而不是凍結 —— 兩種失效模式都要分開偵測。
         runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
 
+    # ── 設定重載 ─────────────────────────────────────────────────
+    # 重載失敗 = 元件繼續跑上一份能用的設定，而你以為新的已經生效。
+    # 注意這條只抓「reload 了但失敗」；「改了沒 reload」沒有任何指標會變，
+    # 要靠 make obs-mounts 比對檔案 mtime 與上次成功 reload 的時間戳。
+    - alert: ConfigReloadFailed
+      expr: prometheus_config_last_reload_successful == 0 or alertmanager_config_last_reload_successful == 0
+      for: 2m
+      labels: { severity: critical, category: meta, service: "{{ $labels.job }}" }
+      annotations:
+        summary: "{{ $labels.job }} 設定重載失敗 —— 仍在跑上一份能用的設定"
+        description: "設定重載失敗代表這個元件仍在跑上一份能用的設定，而磁碟上那份是壞的。你以為生效的規則、路由、探測模組全都沒有生效。先跑 make obs-validate 找出語法錯誤；注意這條抓不到「改了沒 reload」—— 那要靠 make obs-mounts。"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
     # ── 通知面 ───────────────────────────────────────────────────
     # Alertmanager 只知道 webhook 有沒有回 200。webhook 後面那一段 —— LINE 到底
     # 送出去了沒、心跳到底打到外部服務了沒 —— 由 notifier 自己的指標回答。

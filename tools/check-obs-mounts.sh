@@ -78,6 +78,37 @@ for container in "${!TARGETS[@]}"; do
   done
 done
 
+# ── 第二種分家：磁碟上的設定比執行中的新（改了沒 reload）────────────
+# 2026-09-06 發現 Alertmanager 從 09-02 起一直跑啟動時的設定：檔案改了四天，
+# 沒有任何人叫它重載。mount 沒斷、語法也對、reload 指標也是 1 —— 因為上一次
+# reload 就是啟動那次，它成功了。唯一能看出問題的是「檔案 mtime 晚於上次成功
+# reload 的時間」。每個元件都暴露那個時間戳，拿來比就好。
+echo
+echo " ── 執行中的設定是否舊於磁碟 ──"
+reload_check() {  # <名稱> <metrics URL> <metric 名> <檔案...>
+  local name="$1" url="$2" metric="$3"; shift 3
+  local ts; ts="$(curl -sf -m 5 "$url" 2>/dev/null | awk -v m="$metric" '$1==m {print $2}')"
+  if [ -z "$ts" ]; then echo "  ⚠ $name : 讀不到 $metric，略過"; return; fi
+  local ts_int; ts_int="$(python3 -c "print(int(float('$ts')))")"
+  local f
+  for f in "$@"; do
+    CHECKED=$((CHECKED + 1))
+    local mt; mt="$(stat -c %Y "$f")"
+    if [ "$mt" -gt $((ts_int + 1)) ]; then
+      echo "  ✗ $name : $(basename "$f") 改於 $(date -d @"$mt" '+%m-%d %H:%M')，但上次成功 reload 是 $(date -d @"$ts_int" '+%m-%d %H:%M')"
+      echo "      執行中的是舊設定。修法：make obs-reload（會重載三個元件並回到這裡驗證）"
+      FAIL=1
+    fi
+  done
+}
+P="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/deploy/observability"
+reload_check prometheus   http://127.0.0.1:9090/metrics prometheus_config_last_reload_success_timestamp_seconds \
+  "$P/prometheus/prometheus.yml" "$P/prometheus/alerts.yml" "$P/prometheus/slo.yml"
+reload_check alertmanager http://127.0.0.1:9093/metrics alertmanager_config_last_reload_success_timestamp_seconds \
+  "$P/alertmanager/alertmanager.yml"
+reload_check blackbox     http://127.0.0.1:9115/metrics blackbox_exporter_config_last_reload_success_timestamp_seconds \
+  "$P/blackbox/blackbox.yml"
+
 echo "─────────────────────────────────────────────"
 printf " 檢查檔案數 : %d\n" "$CHECKED"
 echo "─────────────────────────────────────────────"
@@ -86,7 +117,7 @@ echo
 if [ "$FAIL" -eq 0 ]; then
   echo "✅ 所有監控容器讀到的設定與磁碟一致。"
 else
-  echo "❌ 有容器讀不到磁碟上的設定 —— 它正在跑舊的那一份。"
+  echo "❌ 有元件正在跑舊設定 —— mount 斷裂或改了沒 reload。"
 fi
 
 exit "$FAIL"
