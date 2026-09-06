@@ -2,6 +2,7 @@ package com.binance.trading;
 
 import com.binance.trading.api.TradingApiServer;
 import com.binance.trading.db.DBOrderRepository;
+import com.binance.trading.engine.DesiredState;
 import com.binance.trading.engine.OrderBook;
 import com.binance.trading.engine.OrderCache;
 import com.binance.trading.engine.TradingEngine;
@@ -28,8 +29,12 @@ import java.util.concurrent.TimeUnit;
  *   http://<mac-ip>:3000   (Next.js dev server)
  *   ws://<mac-ip>:8093     (WebSocket stream)
  *
- * NOTE: The engine does NOT auto-start. Press RUN in the UI to call
- *       POST /api/v1/engine/start, which triggers engine.start().
+ * NOTE: On a fresh install the engine does NOT auto-start; press RUN in the UI
+ *       (POST /api/v1/engine/start). From then on the operator's last start/stop
+ *       is persisted (ENGINE_STATE_FILE, set by the systemd unit) and restored
+ *       at boot. That is the fix for incident #2: a restart used to bring the
+ *       process back with the generator silently STOPPED. Without the variable
+ *       (tests, k6) behaviour is unchanged: always STOPPED at start.
  */
 public class Main {
 
@@ -58,9 +63,16 @@ public class Main {
             db.saveAsync(order, isDuplicate);
         });
 
-        // Start REST API server
-        TradingApiServer restServer = new TradingApiServer(restPort, engine, db);
+        // Start REST API server. Operator intent (start/stop) is persisted through it.
+        DesiredState desired = DesiredState.fromEnv();
+        TradingApiServer restServer = new TradingApiServer(restPort, engine, db, desired);
         restServer.start();
+
+        // Incident #2 fix: restore what the operator last asked for. Only the
+        // operator's intent is honoured - never "it was running when we died",
+        // because the shutdown hook below stops the engine on every SIGTERM.
+        boolean restored = desired.load().orElse(false);
+        if (restored) engine.start();
 
         // Broadcast stats every second to all connected WS clients
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
@@ -90,7 +102,10 @@ public class Main {
         System.out.println("╚══════════════════════════════════════════════╝");
         System.out.printf("  REST API  : http://0.0.0.0:%d/api/v1/status%n", restPort);
         System.out.printf("  WebSocket : ws://0.0.0.0:%d%n", wsPort);
-        System.out.println("  Engine    : STOPPED — press RUN in the UI to start");
+        System.out.printf("  Engine    : %s%s%n",
+                engine.isRunning() ? "RUNNING (restored from " + desired.path() + ")" : "STOPPED",
+                engine.isRunning() ? "" : desired.isEnabled() ? " — no prior intent recorded; press RUN"
+                                                                  : " — press RUN in the UI to start");
         System.out.println("  Press Ctrl+C to stop.");
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {

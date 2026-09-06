@@ -108,9 +108,9 @@ sudo systemctl restart binance-trading-engine
 
 ## 事後
 
-- [ ] 已修：狀態改為開機時自動恢復（不再依賴 in-memory 旗標）
-- [ ] 已補：本告警（把可靠度訊號從「進程存活」改為「工作進度」）
-- [ ] 待辦：在 systemd unit 加上 `ExecStartPost` 驗證業務執行緒已啟動
+- [x] 已修（2026-09-06）：操作者最後一次 `/engine/start` 或 `/stop` 會被持久化（`ENGINE_STATE_FILE`，位於 unit 的 `StateDirectory`），開機時恢復。只記錄操作者意圖，絕不記錄引擎自己的 `stop()`——關機 hook 在每次 `SIGTERM` 都會呼叫它。以重啟兩次驗證：首次無檔案時維持 STOPPED 如舊；`/start` 一次後，下一次重啟自行恢復為 RUNNING。
+- [x] 已補：本告警（把可靠度訊號從「進程存活」改為「工作進度」）
+- [x] 已補（2026-09-06）：`ExecStartPost=deploy/systemd/engine-verify-start.sh`——unit 要等 `/status` 與持久化的意圖一致才算「已啟動」，否則進入 `failed`（配 `StartLimitBurst=3`，永遠起不來的產生器不會無限重啟）。刻意**不**自動 `/start`——自動修復正是讓事故 #2 隱藏六天的原因。
 - [ ] 待辦：`unattended-upgrades` 排除 MySQL，或設定維護窗口
 
 **這次事故的核心教訓**：

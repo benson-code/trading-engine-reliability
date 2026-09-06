@@ -1,6 +1,7 @@
 package com.binance.trading.api;
 
 import com.binance.trading.db.DBOrderRepository;
+import com.binance.trading.engine.DesiredState;
 import com.binance.trading.engine.TradingEngine;
 import com.binance.trading.metrics.EngineMetrics;
 import com.binance.trading.model.Order;
@@ -38,6 +39,8 @@ public class TradingApiServer {
     private final DBOrderRepository db;
     private final ObjectMapper     mapper = new ObjectMapper();
     private final EngineMetrics    metrics;
+    /** Operator intent for the generator, persisted across restarts. Disabled in tests. */
+    private final DesiredState     desired;
     private final int              port;
 
     public TradingApiServer(int port, TradingEngine engine) throws IOException {
@@ -45,12 +48,20 @@ public class TradingApiServer {
     }
 
     public TradingApiServer(int port, TradingEngine engine, DBOrderRepository db) throws IOException {
-        this.port   = port;
-        this.engine = engine;
-        this.db     = db;
+        this(port, engine, db, DesiredState.disabled());
+    }
+
+    public TradingApiServer(int port, TradingEngine engine, DBOrderRepository db,
+                            DesiredState desired) throws IOException {
+        this.engine  = engine;
+        this.db      = db;
+        this.desired = desired;
         this.metrics = new EngineMetrics(engine);
         this.server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
 
+        // The requested port may be 0 ("pick one"); report the port actually bound,
+        // otherwise the startup banner says :0 and nothing can discover it.
+        this.port = server.getAddress().getPort();
         server.createContext("/api/v1/engine",            this::handleEngine);
         server.createContext("/api/v1/orders/duplicates", this::handleDuplicates);
         server.createContext("/api/v1/orders/history",    this::handleHistory);
@@ -76,11 +87,31 @@ public class TradingApiServer {
             send(ex, 405, toJson(Map.of("error", "Method Not Allowed")));
             return;
         }
+        // These two branches are the ONLY place operator intent is recorded.
+        // TradingEngine.stop() is also called by Main's shutdown hook on SIGTERM;
+        // persisting there would record STOPPED on every clean shutdown and the
+        // restart would restore exactly the state incident #2 was about.
         if (path.endsWith("/start")) {
+            try {
+                desired.save(true);      // persist first: a restart must not lose this
+            } catch (IOException e) {
+                send(ex, 500, toJson(Map.of("error", "STATE_PERSIST_FAILED",
+                        "message", "Refusing to start: could not record intent at "
+                                   + desired.path() + " — a restart would silently stop the engine")));
+                return;
+            }
             engine.start();
             send(ex, 200, toJson(Map.of("status", "RUNNING", "message", "Engine started")));
         } else if (path.endsWith("/stop")) {
-            engine.stop();
+            engine.stop();               // stop first: safety over bookkeeping
+            try {
+                desired.save(false);
+            } catch (IOException e) {
+                send(ex, 500, toJson(Map.of("error", "STATE_PERSIST_FAILED",
+                        "message", "Engine is stopped, but the intent could not be recorded at "
+                                   + desired.path() + " — it will resume on the next restart")));
+                return;
+            }
             send(ex, 200, toJson(Map.of("status", "STOPPED", "message", "Engine stopped")));
         } else {
             send(ex, 404, toJson(Map.of("error", "Unknown engine action")));

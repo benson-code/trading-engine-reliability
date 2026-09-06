@@ -18,7 +18,7 @@ unit 檔的權限是 `0644` —— **主機上任何使用者都讀得到**。
 
 | unit | 憑證檔 | 用途 |
 |---|---|---|
-| `binance-trading-engine` | `/etc/binance-trading-engine.env`（`DB_PASSWORD`）| 交易引擎 |
+| `binance-trading-engine` | `/etc/binance-trading-engine.env`（`DB_PASSWORD`）| 交易引擎；`StateDirectory` 持久化產生器意圖，`ExecStartPost` 驗證業務執行緒真的起來（事故 #2 修復）|
 | `alert-notifier` | `/etc/alert-notifier.env`（`LINE_CHANNEL_ACCESS_TOKEN`、`HEARTBEAT_URL`）| 告警最後一哩：LINE + 心跳 |
 
 兩者做法相同：`.example` 範本在本目錄、真實檔在 `/etc` 0640 root:ubuntu。

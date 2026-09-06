@@ -8,6 +8,10 @@
 Description=Binance Trading Engine Simulator (Port 8092/8093)
 After=network.target mysql.service
 Wants=mysql.service
+# ExecStartPost 失敗會讓 unit 進 failed 並觸發 Restart=on-failure。
+# 沒有這兩行，一個永遠起不來的產生器會讓 systemd 無限重啟。
+StartLimitIntervalSec=600
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -18,7 +22,26 @@ WorkingDirectory=/home/ubuntu/qa
 # 寧可大聲失敗，也不要靜默地用一個寫死的預設密碼。
 EnvironmentFile=/etc/binance-trading-engine.env
 
+# ── 事故 #2 的修復（2026-09-06）────────────────────────────────
+# 產生器的「該不該跑」原本只存在記憶體裡的 AtomicBoolean，重啟後歸零。
+# 2026-07 MySQL 重啟連帶 SIGTERM 掉服務，systemd 成功拉起進程，
+# 產生器卻靜默停了六天 —— 所有 liveness check 全程通過。
+#
+# StateDirectory 讓 systemd 建立 /var/lib/binance-trading-engine（擁有者 = User），
+# 程式把操作者最後一次 start/stop 的意圖寫在那裡，開機時恢復。
+# 記錄的是「操作者要什麼」，不是「死掉前在跑什麼」—— 關機 hook 會呼叫 engine.stop()，
+# 若記錄的是後者，每次乾淨關機都會把 STOPPED 存下來，重啟就忠實地恢復成停工。
+StateDirectory=binance-trading-engine
+Environment=ENGINE_STATE_FILE=/var/lib/binance-trading-engine/desired-state
+Environment=ENGINE_REST_PORT=8092
+
 ExecStart=/usr/bin/java -jar /home/ubuntu/qa/trading-engine-simulator/target/trading-engine-simulator-1.0.0.jar
+
+# 成功條件從「進程存在」提高到「該做的工作真的在做」：
+# 等 REST API 回應，若持久化的意圖是 RUNNING 就要求 /status 也是 RUNNING，
+# 否則以非零離開 → unit failed → EngineWorkerStopped 與 systemd 兩邊同時亮。
+# 刻意不在這裡自動 POST /engine/start：自動修復會掩蓋問題，事故 #2 就是這樣被掩蓋六天的。
+ExecStartPost=/home/ubuntu/qa/deploy/systemd/engine-verify-start.sh
 
 Restart=on-failure
 RestartSec=5s

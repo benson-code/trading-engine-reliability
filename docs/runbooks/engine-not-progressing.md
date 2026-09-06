@@ -109,9 +109,9 @@ Known root cause (incident #2, July 2026):
 
 ## Follow-up
 
-- [ ] Fixed: state now recovers automatically at boot instead of depending on an in-memory flag
-- [ ] Added: this alert group — the reliability signal moved from "process alive" to "work progressing"
-- [ ] Todo: add `ExecStartPost` to the systemd unit to verify the business threads actually started
+- [x] Fixed 2026-09-06: the operator's last `/engine/start` or `/stop` is persisted (`ENGINE_STATE_FILE`, under the unit's `StateDirectory`) and restored at boot. Only operator intent is recorded — never the engine's own `stop()`, which the shutdown hook calls on every `SIGTERM`. Verified by restarting the service twice: first boot with no file stays STOPPED as before; after one `/start`, the next restart comes back RUNNING on its own.
+- [x] Added: this alert group — the reliability signal moved from "process alive" to "work progressing"
+- [x] Added 2026-09-06: `ExecStartPost=deploy/systemd/engine-verify-start.sh` — the unit is only "started" once `/status` agrees with the persisted intent; otherwise it goes `failed` (with `StartLimitBurst=3` so a generator that can never start does not loop forever). It deliberately does **not** auto-`/start` — auto-recovery is what hid incident #2 for six days.
 - [ ] Todo: exclude MySQL from `unattended-upgrades`, or define a maintenance window
 
 **The core lesson:**

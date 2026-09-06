@@ -54,4 +54,5 @@ is pushed onto MySQL behind it. The response is to add capacity or revisit the
 TTL strategy, **not** to switch the policy back to `noeviction`.
 
 ## Follow-up
+- [x] 2026-09-06: bounded on this host — `maxmemory 256mb`, `allkeys-lru`, persisted with `config rewrite`. Nothing in this repository writes to Redis (it exists as a monitored dependency and for the eviction measurements above), so a pure-cache policy is the right default; 256 MB is ~200× current use (1.3 MB) on an 11 GiB host with no swap.
 - [ ] Every class of key should have a deliberate TTL decision — including a stated reason where the answer is "none"

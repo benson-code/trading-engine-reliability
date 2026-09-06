@@ -52,4 +52,5 @@ redis-cli config rewrite
 而不是把 policy 改回 `noeviction`。
 
 ## 事後
+- [x] 2026-09-06：本主機已設上限 —— `maxmemory 256mb`、`allkeys-lru`，以 `config rewrite` 持久化。本 repo 沒有任何程式寫入 Redis（它作為被監控的相依與上方淘汰實驗的對象存在），因此純快取策略是合理預設；256 MB 約為目前用量（1.3 MB）的 200 倍，主機 11 GiB 且無 swap。
 - [ ] 每一類 key 都應該有明確的 TTL 決策（含「刻意不設」的理由）
