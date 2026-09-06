@@ -413,6 +413,26 @@ groups:
         runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
 
     # ── 通知面 ───────────────────────────────────────────────────
+    # Alertmanager 只知道 webhook 有沒有回 200。webhook 後面那一段 —— LINE 到底
+    # 送出去了沒、心跳到底打到外部服務了沒 —— 由 notifier 自己的指標回答。
+    - alert: NotifierDeliveryFailing
+      expr: increase(notifier_deliveries_total{channel="line",outcome="error"}[15m]) > 0
+      for: 5m
+      labels: { severity: critical, category: meta, service: alert-notifier }
+      annotations:
+        summary: "LINE 送出失敗（15 分鐘內有錯誤）"
+        description: "告警到了 notifier，但 LINE API 回錯或連不上。人不會收到通知。先看 journalctl -u alert-notifier 與 delivered.log 的 line: error 行；401 代表 token 失效。"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
+    - alert: HeartbeatNotConfigured
+      expr: notifier_channel_configured{channel="heartbeat"} == 0
+      for: 10m
+      labels: { severity: warning, category: meta, service: alert-notifier }
+      annotations:
+        summary: "死人開關沒有接到外部心跳服務"
+        description: "HEARTBEAT_URL 未設定，DeadMansSwitch 只送到本機。主機整台死掉時沒有任何人會被通知。到 /etc/alert-notifier.env 填 Healthchecks.io 的 ping URL 後 restart alert-notifier。"
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
     # 告警算對了、也路由了，但送不出去 —— 對值班的人來說等同於沒有告警。
     - alert: AlertmanagerNotificationFailing
       expr: increase(alertmanager_notifications_failed_total[10m]) > 0

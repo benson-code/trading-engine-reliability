@@ -1,0 +1,20 @@
+[Unit]
+Description=Alertmanager webhook notifier (delivered.log + LINE + heartbeat)
+# 這是告警鏈路的最後一哩。它之前是一個裸的 python3 進程 —— 重開機或崩潰後
+# 所有通知會安靜地消失，而儀表板上什麼都不會變紅。交給 systemd 管。
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+# token 與心跳 URL 在這裡，0640 root:ubuntu，不進 repo。範本見同目錄 .env.example
+EnvironmentFile=/etc/alert-notifier.env
+ExecStart=/usr/bin/python3 /home/ubuntu/qa/deploy/observability/alertmanager/alert-sink.py 9199
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

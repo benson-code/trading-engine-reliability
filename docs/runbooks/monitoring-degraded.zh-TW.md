@@ -2,7 +2,7 @@
 
 **[English](monitoring-degraded.md)** | 繁體中文
 
-> **對應告警**：`DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `TextfileCollectorStale` · `TextfileCollectorError` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing`
+> **對應告警**：`DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `TextfileCollectorStale` · `TextfileCollectorError` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing` · `NotifierDeliveryFailing` · `HeartbeatNotConfigured`
 > **嚴重度**：critical / warning（心跳為 none）
 > **來源**：把事故 #1 與 #2 的教訓，套用在監控堆疊自己身上
 
@@ -32,6 +32,8 @@
 | `TextfileCollectorStale` | `time() - node_textfile_mtime_seconds > 180` | 2m | critical |
 | `TextfileCollectorError` | `node_textfile_scrape_error > 0` | 5m | warning |
 | `AlertmanagerNotificationFailing` | `increase(alertmanager_notifications_failed_total[10m]) > 0` | 5m | critical |
+| `NotifierDeliveryFailing` | `increase(notifier_deliveries_total{channel="line",outcome="error"}[15m]) > 0` | 5m | critical |
+| `HeartbeatNotConfigured` | `notifier_channel_configured{channel="heartbeat"} == 0` | 10m | warning |
 
 `ScrapeTargetDown` 排除 `job="node"`，因為主機本身由
 [host-down](host-down.zh-TW.md) 負責。
@@ -122,6 +124,48 @@ docker compose -f deploy/observability/docker-compose.yml \
 > **重載不能取代檢查。** 這次是 `curl -X POST .../-/reload` 回 500 才暴露出來 ——
 > 但一個從來沒被觸發過的 reload,永遠不會告訴你任何事。
 > `make obs-mounts` 存在的理由就是這個。
+
+---
+
+## 最後一哩：到底有沒有人被通知到？
+
+2026-09-06 之前，`alertmanager.yml` 裡每一個接收端都指向 localhost 上一個只會寫
+`delivered.log` 的 webhook sink —— 而那個 sink 是一個沒有人管的裸 `python3` 進程。
+這個 repo 裡的每一條告警，終點都是**正在出事的那台主機上的一個 log 檔**。
+
+現在 sink 是 `alert-notifier.service`（systemd，`Restart=always`），每個 webhook 做三件事：
+
+| 路徑 | 動作 |
+|---|---|
+| `/alert`、`/critical`、`/capacity` | 寫入 `delivered.log`，然後**廣播到 LINE**（Messaging API，跟每日報告同一個 channel）|
+| `/heartbeat` | 寫入 `delivered.log`，然後 `GET $HEARTBEAT_URL` —— 外部死人開關服務，在 ping **停止**時反過來叫你 |
+
+**最後一哩自己也被觀測。** notifier 暴露 `/metrics`（`job="alert-notifier"`），因為
+Alertmanager 自己的 `notifications_failed_total` 只知道 webhook 有沒有回 200，
+不知道後面的 LINE 有沒有收下訊息。
+
+| 告警 | 意義 |
+|---|---|
+| `NotifierDeliveryFailing` | 15 分鐘內 LINE 回錯。**人沒有被通知到。** `401` = token 失效 |
+| `HeartbeatNotConfigured` | `HEARTBEAT_URL` 是空的；死人開關只打到本機，主機整台死掉時沒有人會知道 |
+
+LINE 免費方案有每月額度。notifier 以 `LINE_HOURLY_CAP`（預設 30）自我限流，
+被壓下的會計數（`notifier_deliveries_total{outcome="suppressed"}`），不會默默丟掉。
+
+```bash
+# 證明整條鏈路通了 —— 你應該會收到一則 LINE
+make obs-notify-test
+
+# 送了什麼、LINE / 心跳有沒有收
+make obs-alerts
+
+# notifier 活著且設定齊全嗎
+systemctl status alert-notifier
+curl -s http://127.0.0.1:9199/metrics | grep notifier_channel_configured
+```
+
+憑證放在 `/etc/alert-notifier.env`（0640 root:ubuntu），不進 repo ——
+見 [`deploy/systemd/`](../../deploy/systemd/README.md)。
 
 ---
 

@@ -14,6 +14,15 @@ unit 檔的權限是 `0644` —— **主機上任何使用者都讀得到**。
 
 正確做法是 `EnvironmentFile` 指向一個 `0640 root:<service-group>` 的檔案。
 
+## 有哪些服務
+
+| unit | 憑證檔 | 用途 |
+|---|---|---|
+| `binance-trading-engine` | `/etc/binance-trading-engine.env`（`DB_PASSWORD`）| 交易引擎 |
+| `alert-notifier` | `/etc/alert-notifier.env`（`LINE_CHANNEL_ACCESS_TOKEN`、`HEARTBEAT_URL`）| 告警最後一哩：LINE + 心跳 |
+
+兩者做法相同：`.example` 範本在本目錄、真實檔在 `/etc` 0640 root:ubuntu。
+
 ## 部署步驟
 
 ```bash

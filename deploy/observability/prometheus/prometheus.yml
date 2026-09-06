@@ -34,6 +34,12 @@ scrape_configs:
     static_configs:
       - targets: ['127.0.0.1:9093']
 
+  # 告警鏈路的最後一哩：webhook 之後那一段（LINE / 心跳）有沒有真的送到。
+  # Alertmanager 的 notifications_failed_total 只看到 webhook 回不回 200。
+  - job_name: alert-notifier
+    static_configs:
+      - targets: ['127.0.0.1:9199']
+
   # ── 應用層：payment-api 自己暴露的 RED 指標 ──────────────────────
   #
   #    在這個 job 出現之前，關於這支服務的每一個訊號都來自外部黑箱探測。

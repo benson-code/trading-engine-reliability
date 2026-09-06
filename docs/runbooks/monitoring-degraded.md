@@ -2,7 +2,7 @@
 
 **English** | [繁體中文](monitoring-degraded.zh-TW.md)
 
-> **Alerts**: `DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `TextfileCollectorStale` · `TextfileCollectorError` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing`
+> **Alerts**: `DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `TextfileCollectorStale` · `TextfileCollectorError` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing` · `NotifierDeliveryFailing` · `HeartbeatNotConfigured`
 > **Severity**: critical / warning (and `none` for the heartbeat)
 > **Origin**: the lesson of incidents #1 and #2, applied to the monitoring stack itself
 
@@ -34,6 +34,8 @@ turns red, because no data is arriving to turn it red.
 | `TextfileCollectorStale` | `time() - node_textfile_mtime_seconds > 180` | 2m | critical |
 | `TextfileCollectorError` | `node_textfile_scrape_error > 0` | 5m | warning |
 | `AlertmanagerNotificationFailing` | `increase(alertmanager_notifications_failed_total[10m]) > 0` | 5m | critical |
+| `NotifierDeliveryFailing` | `increase(notifier_deliveries_total{channel="line",outcome="error"}[15m]) > 0` | 5m | critical |
+| `HeartbeatNotConfigured` | `notifier_channel_configured{channel="heartbeat"} == 0` | 10m | warning |
 
 `job="node"` is excluded from `ScrapeTargetDown` because
 [host-down](host-down.md) already covers the host itself.
@@ -133,6 +135,53 @@ docker compose -f deploy/observability/docker-compose.yml \
 > Reloading is not a substitute for checking. `curl -X POST .../-/reload`
 > returning 500 is what exposed this — but a reload that is never attempted
 > will never tell you anything, which is why `make obs-mounts` exists.
+
+---
+
+## The last mile: does anyone actually get told?
+
+Until 2026-09-06 every receiver in `alertmanager.yml` pointed at a webhook sink on
+localhost that only wrote `delivered.log` — and that sink was a bare `python3`
+process with no supervisor. Every alert in this repository terminated in a log
+file on the same host that was failing.
+
+The sink is now `alert-notifier.service` (systemd, `Restart=always`), and it
+does three things per webhook:
+
+| Route | What happens |
+|---|---|
+| `/alert`, `/critical`, `/capacity` | Written to `delivered.log`, then **broadcast to LINE** (Messaging API, the same channel the daily report uses) |
+| `/heartbeat` | Written to `delivered.log`, then `GET $HEARTBEAT_URL` — an external dead-man's-switch service that pages you when the ping *stops* |
+
+**The last mile is itself observed.** The notifier exposes `/metrics`
+(`job="alert-notifier"`), because Alertmanager's own
+`notifications_failed_total` only knows whether the webhook returned 200 — not
+whether LINE accepted the message behind it.
+
+| Alert | Meaning |
+|---|---|
+| `NotifierDeliveryFailing` | LINE returned an error in the last 15 minutes. **People are not being told.** `401` = token expired |
+| `HeartbeatNotConfigured` | `HEARTBEAT_URL` is empty; the dead-man's switch only reaches localhost, so a whole-host failure notifies nobody |
+
+LINE's free tier has a monthly quota. The notifier caps itself at
+`LINE_HOURLY_CAP` (default 30) and counts what it suppresses
+(`notifier_deliveries_total{outcome="suppressed"}`) rather than dropping it
+silently.
+
+```bash
+# Prove the whole chain end to end - you should get a LINE message
+make obs-notify-test
+
+# What was delivered, and whether LINE / heartbeat accepted it
+make obs-alerts
+
+# Is the notifier alive and configured
+systemctl status alert-notifier
+curl -s http://127.0.0.1:9199/metrics | grep notifier_channel_configured
+```
+
+Credentials live in `/etc/alert-notifier.env` (0640 root:ubuntu), never in the
+repository — see [`deploy/systemd/`](../../deploy/systemd/README.md).
 
 ---
 

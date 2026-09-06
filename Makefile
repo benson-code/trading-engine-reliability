@@ -110,6 +110,13 @@ obs-validate: ## 驗證 Prometheus / Alertmanager 設定與告警規則語法
 obs-alerts: ## 顯示已送達的告警通知
 	@tail -40 $(OBS_DIR)/alertmanager/delivered.log 2>/dev/null || echo "  尚無送達紀錄"
 
+.PHONY: obs-notify-test
+obs-notify-test: ## 送一條煙霧測試告警走完整鏈路（Alertmanager → notifier → LINE）
+	@NOW=$$(date -u +%Y-%m-%dT%H:%M:%SZ); END=$$(date -u -d '+90 seconds' +%Y-%m-%dT%H:%M:%SZ); \
+	curl -s -o /dev/null -w '  Alertmanager HTTP %{http_code}\n' -X POST http://127.0.0.1:9093/api/v2/alerts \
+	  -H 'Content-Type: application/json' -d "[{\"labels\":{\"alertname\":\"NotifierSmokeTest\",\"severity\":\"critical\",\"service\":\"alert-notifier\",\"category\":\"meta\"},\"annotations\":{\"summary\":\"通知鏈路煙霧測試 — 收到代表全程通了\",\"runbook_url\":\"https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md\"},\"startsAt\":\"$$NOW\",\"endsAt\":\"$$END\"}]"; \
+	echo '  約 15 秒後查看 LINE；紀錄見 make obs-alerts'
+
 .PHONY: obs-test
 obs-test: ## 告警規則的單元測試（餵假資料，斷言哪條該響）
 	@docker run --rm -v $(PWD)/$(OBS_DIR)/prometheus:/etc/prometheus:ro -w /etc/prometheus \

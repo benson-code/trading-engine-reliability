@@ -179,7 +179,53 @@ tests:
         exp_alerts: []
 
   # ────────────────────────────────────────────────────────────────
-  # 7. 死人開關必須永遠在響
+  # 8. 最後一哩：LINE 送出失敗要叫；沒有失敗不叫
+  # ────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "LINE 投遞失敗時觸發"
+    input_series:
+      - series: 'notifier_deliveries_total{channel="line",outcome="error",route="critical",instance="127.0.0.1:9199",job="alert-notifier"}'
+        values: '0 0 1 2 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: NotifierDeliveryFailing
+        exp_alerts:
+          - exp_labels: { severity: critical, category: meta, service: alert-notifier, channel: line, outcome: error, route: critical, instance: 127.0.0.1:9199, job: alert-notifier }
+            exp_annotations:
+              summary: "LINE 送出失敗（15 分鐘內有錯誤）"
+              description: "告警到了 notifier，但 LINE API 回錯或連不上。人不會收到通知。先看 journalctl -u alert-notifier 與 delivered.log 的 line: error 行；401 代表 token 失效。"
+              runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
+  - interval: 1m
+    name: "LINE 全部成功時不觸發"
+    input_series:
+      - series: 'notifier_deliveries_total{channel="line",outcome="ok",route="critical",instance="127.0.0.1:9199",job="alert-notifier"}'
+        values: '0+1x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: NotifierDeliveryFailing
+        exp_alerts: []
+
+  - interval: 1m
+    name: "心跳未設定時觸發；設定後不觸發"
+    input_series:
+      - series: 'notifier_channel_configured{channel="heartbeat",instance="127.0.0.1:9199",job="alert-notifier"}'
+        values: '0x12 1x10'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: HeartbeatNotConfigured
+        exp_alerts:
+          - exp_labels: { severity: warning, category: meta, service: alert-notifier, channel: heartbeat, instance: 127.0.0.1:9199, job: alert-notifier }
+            exp_annotations:
+              summary: "死人開關沒有接到外部心跳服務"
+              description: "HEARTBEAT_URL 未設定，DeadMansSwitch 只送到本機。主機整台死掉時沒有任何人會被通知。到 /etc/alert-notifier.env 填 Healthchecks.io 的 ping URL 後 restart alert-notifier。"
+              runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+      - eval_time: 22m
+        alertname: HeartbeatNotConfigured
+        exp_alerts: []
+
+  # ────────────────────────────────────────────────────────────────
+  # 9. 死人開關必須永遠在響
   #
   #    它是唯一一條「不響才是異常」的告警。如果哪天有人不小心
   #    把它改壞了或被抑制規則吃掉，這個測試會擋下來。

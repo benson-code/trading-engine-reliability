@@ -45,7 +45,7 @@ Layer 0  被監控 ── payment-api · trading-engine · MySQL · Redis · 主
 | blackbox_exporter | 9115 | 127.0.0.1 | 黑箱探測 |
 | mysqld_exporter | 9104 | 127.0.0.1 | MySQL 指標 |
 | redis_exporter | 9121 | 127.0.0.1 | Redis 指標 |
-| alert-sink | 9199 | 127.0.0.1 | 告警送達驗證 |
+| alert-notifier | 9199 | 127.0.0.1 | 告警最後一哩：delivered.log + LINE 廣播 + 外部心跳；自帶 /metrics |
 
 ---
 
@@ -101,7 +101,7 @@ make runbooks        # 檢查告警 ↔ SOP 覆蓋率
 | `saturation` | 資源快用完了嗎？（USE）| 4 |
 | `capacity` | 多久之後會用完？（predict_linear）| 4 |
 | `dependencies` | 相依元件還在嗎？| 6 |
-| `meta` | 監控系統自己還活著嗎？（含死人開關與採集器凍結）| 8 |
+| `meta` | 監控系統自己還活著嗎？（含死人開關、採集器凍結、最後一哩）| 10 |
 | `application` | 請求真的成功了嗎？（服務自報的 RED）| 1 |
 | `slo-burn-rate` | 錯誤預算燒得多快？（另存於 slo.yml）| 6 |
 
@@ -133,7 +133,7 @@ Alertmanager 設有 4 條抑制規則，避免一次故障噴出數十則通知�
 ## 處理 SOP
 
 **每一條告警都必須有 `runbook_url`，由 CI 強制檢查。**
-見 [`docs/runbooks/`](../../docs/runbooks/README.zh-TW.md)（15 份，覆蓋 39 條告警）。
+見 [`docs/runbooks/`](../../docs/runbooks/README.zh-TW.md)（15 份，覆蓋 41 條告警）。
 
 `tools/check-alert-runbooks.sh` 檢查三件事：
 - R1 每條 alert 都有 `runbook_url`
