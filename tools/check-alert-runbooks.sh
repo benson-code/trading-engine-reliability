@@ -16,7 +16,9 @@
 
 set -uo pipefail
 
-RULES="${RULES:-deploy/observability/prometheus/alerts.yml}"
+# 多份規則檔：alerts.yml 是症狀告警，slo.yml 是錯誤預算燒錄率告警。
+# 兩邊的 alert 都受同一條規則約束 —— 沒有 SOP 的告警不准進 main。
+RULES="${RULES:-deploy/observability/prometheus/alerts.yml deploy/observability/prometheus/slo.yml}"
 RUNBOOK_DIR="${RUNBOOK_DIR:-docs/runbooks}"
 FAIL=0
 
@@ -28,15 +30,17 @@ echo " 告警 ↔ Runbook 覆蓋檢查"
 echo "─────────────────────────────────────────────"
 
 # 用 python 解析，避免 yaml 縮排在 shell 裡難處理
-mapfile -t ROWS < <(python3 - "$RULES" <<'PY'
+mapfile -t ROWS < <(python3 - $RULES <<'PY'
 import sys, re
-txt = open(sys.argv[1], encoding='utf-8').read()
-# 以 "- alert:" 切段，每段內找 runbook_url
-blocks = re.split(r'\n\s*- alert:\s*', txt)[1:]
-for b in blocks:
-    name = b.split('\n', 1)[0].strip()
-    m = re.search(r'runbook_url:\s*"([^"]+)"', b)
-    print(f"{name}\t{m.group(1) if m else ''}")
+# 逐一掃過每一份規則檔
+for path in sys.argv[1:]:
+    txt = open(path, encoding='utf-8').read()
+    # 以 "- alert:" 切段，每段內找 runbook_url
+    blocks = re.split(r'\n\s*- alert:\s*', txt)[1:]
+    for b in blocks:
+        name = b.split('\n', 1)[0].strip()
+        m = re.search(r'runbook_url:\s*"([^"]+)"', b)
+        print(f"{name}\t{m.group(1) if m else ''}")
 PY
 )
 

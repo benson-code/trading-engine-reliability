@@ -92,7 +92,7 @@ obs-validate: ## 驗證 Prometheus / Alertmanager 設定與告警規則語法
 	@docker run --rm -v $(PWD)/$(OBS_DIR)/prometheus:/etc/prometheus:ro \
 		--entrypoint promtool prom/prometheus:v3.1.0 check config /etc/prometheus/prometheus.yml
 	@docker run --rm -v $(PWD)/$(OBS_DIR)/prometheus:/etc/prometheus:ro \
-		--entrypoint promtool prom/prometheus:v3.1.0 check rules /etc/prometheus/alerts.yml
+		--entrypoint promtool prom/prometheus:v3.1.0 check rules /etc/prometheus/alerts.yml /etc/prometheus/slo.yml
 	@docker run --rm -v $(PWD)/$(OBS_DIR)/alertmanager:/cfg:ro \
 		--entrypoint amtool prom/alertmanager:v0.28.0 check-config /cfg/alertmanager.yml
 
@@ -103,6 +103,10 @@ obs-alerts: ## 顯示已送達的告警通知
 .PHONY: runbooks
 runbooks: ## 檢查每條告警都有對應的處理 SOP
 	tools/check-alert-runbooks.sh
+
+.PHONY: slo
+slo: ## SLO 達成率與錯誤預算（由原始指標回算，可帶視窗：make slo W=7d）
+	tools/slo-report.sh $(or $(W),3d)
 
 .PHONY: preserve
 preserve: ## 事故現場保全（非破壞性採集）

@@ -58,7 +58,7 @@ jobs:
             check config /etc/prometheus/prometheus.yml
           docker run --rm -v "$PWD/deploy/observability/prometheus:/etc/prometheus:ro" \
             --entrypoint promtool prom/prometheus:v3.1.0 \
-            check rules /etc/prometheus/alerts.yml
+            check rules /etc/prometheus/alerts.yml /etc/prometheus/slo.yml
 
       - name: Validate Alertmanager routing config
         run: |

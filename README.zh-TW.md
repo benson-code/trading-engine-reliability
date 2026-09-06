@@ -20,7 +20,8 @@
 - **不搞 WireMock 那套假把戲** —— 每一個 API 跟整合測試都是透過內嵌 HTTP server 去打**真正的** `PaymentService`，而不是 mock 出來的替身，所以測試全綠就代表服務本身真的跑得動（[commit `668bfc4`](https://github.com/benson-code/trading-engine-reliability/commit/668bfc4) 就是從 mock 遷移到真實服務的過程）。
 - **支付等級的輸入跟權限把關** —— 幣別一定要跟帳戶一致（`422`）；金額精度卡在 `DECIMAL(18,8)`（`400 INVALID_PRECISION`，不會偷偷截斷）；支付端點只要有設定，就一定要帶 `X-API-Key`（用常數時間比較，constant-time）（[`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)）。
 - **把弄垮後端的那類缺陷，也拿去測前端** —— `useTradingEngine` 有兩個只進不出的集合，其中一個每收到一則訊息就把自己整份複製一次。Pixel 7 的耐久測試灌 4 萬筆訂單（大約 33 分鐘的 session），然後驗證 retained heap 沒有跟著長大：**約 2,070 KB → 401 KB**，每批耗時的首末比也從 2.27x 拉平到 0.98x（[`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)）。
-- **可觀測性長在真實事故上** —— 24 條 Prometheus 告警規則，閾值全部由兩次實測事故反推 · 12 份 runbook，覆蓋率由 CI 強制 · Alertmanager 分級路由加 4 條抑制規則 · 一個指令完成事故現場保全。
+- **SLO 與錯誤預算,而且其中一個已經超支** —— 三個 SLI,每一個都對應這台機器上真的發生過的失效模式:可用性、延遲(250ms)、以及**工作進度**。3 天實測:可用性 **100.0000%**、延遲 **100.0000%**、工作進度 **97.3611%**(目標 99%)—— **超支 163.9%**。2026-09-03 引擎有 115 分鐘完全沒有產出,而同期間 `probe_success` 全程為 1、延遲維持約 1ms、行程從未重啟:**前兩個 SLI 全程回報一個完美的服務**。上面架了 6 條多視窗多燒錄率告警(14.4x 立刻叫人、6x 開單)([`docs/slo.md`](docs/slo.md))。
+- **可觀測性長在真實事故上** —— 30 條 Prometheus 告警規則，閾值全部由兩次實測事故反推 · 13 份 runbook，覆蓋率由 CI 強制 · Alertmanager 分級路由加 4 條抑制規則 · 一個指令完成事故現場保全。
 - **兩層互相獨立的測試打在真的跑起來的服務上** —— 除了 CI 裡的 Java 測試，還有一套 Python（`pytest`）的 contract / 驗證 / idempotency / 併發測試，以及 `k6` 壓測腳本。兩者都會自己起一個用完即丟的實例、綁 OS 指派的埠號，並以 `nice -n 15` 執行，所以一次執行絕不會撞到、也絕不會寫進這台機器上長期運行的服務（[`python-qa/`](python-qa/README.md)）。
 - **品質靠 CI 強制把關** —— CI 一次跑 104 個 Java 測試，外加一套 mobile-web 耐久測試 · 一道宣告式的 `BOUNDED-BY` 閘，任何長生命週期集合只要沒有淘汰機制、又沒寫明為什麼不會無限成長，就直接擋下來 · `main` 上了連 admin 都擋不掉的分支保護 · 只能走 PR · 五個必過的檢查一定要全綠（機密掃描排第一）· 用 rebase-merge 保留 P1/P2/P3 的 commit 故事線。
 
@@ -40,7 +41,7 @@ trading-engine-reliability/        ← Monorepo 根目錄（Maven parent POM）
 │   └── systemd/                   ← 服務 unit 與憑證管理
 ├── docs/
 │   ├── incident-2026-07-14-*/     ← 事故 RCA，含保留證據與 SHA256 manifest
-│   └── runbooks/                  ← 12 份告警處理 SOP（覆蓋率由 CI 強制）
+│   └── runbooks/                  ← 13 份告警處理 SOP（覆蓋率由 CI 強制）
 └── tools/                         ← CI 品質閘門 + 事故現場保全
 ```
 
@@ -522,7 +523,7 @@ JVM 指標由 [`jstat-exporter.sh`](deploy/observability/jstat-exporter.sh)
 - **R2** 該 URL 指向的檔案確實存在
 - **R3** 沒有孤兒 runbook（存在卻沒有任何告警引用）
 
-12 份 runbook 覆蓋全部 24 條告警，每份都是同樣六段：
+13 份 runbook 覆蓋全部 30 條告警，每份都是同樣六段：
 觸發條件 · 影響 · 立即確認（前三分鐘）· 止血 · 根因調查 · 事後。
 見 [`docs/runbooks/`](docs/runbooks/README.md)。
 

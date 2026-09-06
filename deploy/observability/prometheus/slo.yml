@@ -1,0 +1,247 @@
+# ══════════════════════════════════════════════════════════════════
+#  SLO —— 服務水準目標與錯誤預算
+#
+#  這一層跟 alerts.yml 回答的問題不同：
+#    alerts.yml  「現在有東西壞了嗎？」        → 症狀
+#    slo.yml     「我們還剩多少犯錯的額度？」  → 預算
+#
+#  三個 SLI，每一個都對應這台機器上真的發生過的失效模式：
+#
+#    1 availability   使用者打得到嗎          （黑箱探測）
+#    2 latency        打得到而且夠快嗎        （事故 #1 的形狀：GC 停頓）
+#    3 work-progress  打得到，但事情有在做嗎  （事故 #2 的形狀）
+#
+#  ⚠ 第 3 個才是這個 repo 存在的理由。2026-09-03 05:46–07:41 UTC，
+#    engine_up=1、jvm_uptime_seconds 持續遞增（行程沒重啟）、
+#    probe_success=1 全程 —— 可用性與延遲 SLI 都是 100%，
+#    但訂單產生器停了 115 分鐘。只有 work-progress SLI 看得見。
+#
+#  目標值來自實測，不是抄預設值。推導過程見 docs/slo.md。
+#  燒錄率告警採 Google SRE Workbook 的多視窗多燒錄率法。
+# ══════════════════════════════════════════════════════════════════
+
+groups:
+
+# ─────────────────────────────────────────────────────────────────
+#  第一層：瞬時好壞判定（1 = 好事件，0 = 壞事件）
+#
+#  先把「這一刻算不算好」記成序列，再對它取平均得到比率。
+#  比起每次都跑 subquery，這樣 Prometheus 只算一次。
+# ─────────────────────────────────────────────────────────────────
+- name: slo-indicators
+  interval: 15s
+  rules:
+
+    # SLI 1 —— 可用性：黑箱探測成功
+    - record: slo:payment_api_availability:good
+      expr: probe_success{instance="http://127.0.0.1:8091/api/v1/health"}
+
+    # SLI 2 —— 延遲：探測在 250ms 內完成
+    #
+    # 250ms 不是照著現況調出來的（實測 p99.9 = 4ms，慢了兩個數量級）。
+    # 它設在「使用者開始有感」的位置，也就是 GC 停頓會穿透的位置——
+    # 事故 #1 當時單次 Full GC 停頓以「秒」計。
+    # SLO 門檻要設在痛的地方，不是設在現在剛好過得了的地方。
+    - record: slo:payment_api_latency:good
+      expr: probe_duration_seconds{instance="http://127.0.0.1:8091/api/v1/health"} < bool 0.25
+
+    # SLI 3 —— 工作進度：過去 5 分鐘真的有產出訂單
+    #
+    # 刻意不加 `and engine_up == 1`。行程掛掉時工作當然也沒前進，
+    # 那同樣是一次工作進度失效。把行程活著當成免責條件，
+    # 正是事故 #2 六天沒被發現的那個思考錯誤。
+    - record: slo:engine_work_progress:good
+      expr: (rate(engine_orders_generated_total[5m]) > bool 0)
+
+# ─────────────────────────────────────────────────────────────────
+#  第二層：各視窗的達成率
+#
+#  短視窗（5m/30m）給燒錄率告警當「現在還在燒嗎」的確認條件，
+#  長視窗（1d/3d/30d）給錯誤預算與報表用。
+# ─────────────────────────────────────────────────────────────────
+- name: slo-ratios
+  interval: 30s
+  rules:
+
+    # ── SLI 1 可用性 ──
+    - record: slo:payment_api_availability:ratio_rate5m
+      expr: avg_over_time(slo:payment_api_availability:good[5m])
+    - record: slo:payment_api_availability:ratio_rate30m
+      expr: avg_over_time(slo:payment_api_availability:good[30m])
+    - record: slo:payment_api_availability:ratio_rate1h
+      expr: avg_over_time(slo:payment_api_availability:good[1h])
+    - record: slo:payment_api_availability:ratio_rate6h
+      expr: avg_over_time(slo:payment_api_availability:good[6h])
+    - record: slo:payment_api_availability:ratio_rate3d
+      expr: avg_over_time(slo:payment_api_availability:good[3d])
+    - record: slo:payment_api_availability:ratio_rate30d
+      expr: avg_over_time(slo:payment_api_availability:good[30d])
+
+    # ── SLI 2 延遲 ──
+    - record: slo:payment_api_latency:ratio_rate5m
+      expr: avg_over_time(slo:payment_api_latency:good[5m])
+    - record: slo:payment_api_latency:ratio_rate30m
+      expr: avg_over_time(slo:payment_api_latency:good[30m])
+    - record: slo:payment_api_latency:ratio_rate1h
+      expr: avg_over_time(slo:payment_api_latency:good[1h])
+    - record: slo:payment_api_latency:ratio_rate6h
+      expr: avg_over_time(slo:payment_api_latency:good[6h])
+    - record: slo:payment_api_latency:ratio_rate3d
+      expr: avg_over_time(slo:payment_api_latency:good[3d])
+    - record: slo:payment_api_latency:ratio_rate30d
+      expr: avg_over_time(slo:payment_api_latency:good[30d])
+
+    # ── SLI 3 工作進度 ──
+    - record: slo:engine_work_progress:ratio_rate5m
+      expr: avg_over_time(slo:engine_work_progress:good[5m])
+    - record: slo:engine_work_progress:ratio_rate30m
+      expr: avg_over_time(slo:engine_work_progress:good[30m])
+    - record: slo:engine_work_progress:ratio_rate1h
+      expr: avg_over_time(slo:engine_work_progress:good[1h])
+    - record: slo:engine_work_progress:ratio_rate6h
+      expr: avg_over_time(slo:engine_work_progress:good[6h])
+    - record: slo:engine_work_progress:ratio_rate3d
+      expr: avg_over_time(slo:engine_work_progress:good[3d])
+    - record: slo:engine_work_progress:ratio_rate30d
+      expr: avg_over_time(slo:engine_work_progress:good[30d])
+
+# ─────────────────────────────────────────────────────────────────
+#  第三層：目標值與錯誤預算
+#
+#  目標寫成序列而不是散落在各條 expr 裡，改一個地方就全部跟著改。
+#  預算剩餘 = 1 − 已用掉的失誤量 / 允許的失誤量
+#    1.0  = 完全沒用
+#    0.0  = 剛好用完
+#    < 0  = 超支（負值代表超了多少倍）
+# ─────────────────────────────────────────────────────────────────
+- name: slo-targets
+  interval: 30s
+  rules:
+
+    - record: slo:target
+      expr: vector(0.999)
+      labels: { slo: payment_api_availability }
+    - record: slo:target
+      expr: vector(0.995)
+      labels: { slo: payment_api_latency }
+    - record: slo:target
+      expr: vector(0.99)
+      labels: { slo: engine_work_progress }
+
+    - record: slo:error_budget_remaining
+      expr: 1 - ((1 - slo:payment_api_availability:ratio_rate30d) / (1 - 0.999))
+      labels: { slo: payment_api_availability }
+    - record: slo:error_budget_remaining
+      expr: 1 - ((1 - slo:payment_api_latency:ratio_rate30d) / (1 - 0.995))
+      labels: { slo: payment_api_latency }
+    - record: slo:error_budget_remaining
+      expr: 1 - ((1 - slo:engine_work_progress:ratio_rate30d) / (1 - 0.99))
+      labels: { slo: engine_work_progress }
+
+# ─────────────────────────────────────────────────────────────────
+#  第四層：燒錄率告警（多視窗多燒錄率）
+#
+#  燒錄率 = 目前失誤率 ÷ 預算允許的失誤率
+#    1x   = 剛好在 30 天用完預算
+#    14.4x = 2 小時就燒掉 30 天預算的 2%  → 立刻叫人
+#    6x    = 6 小時燒掉 5%                → 開單，不吵醒人
+#
+#  每條都要求「長視窗」與「短視窗」同時成立：
+#    長視窗負責靈敏度（真的在燒）
+#    短視窗負責重置速度（燒完了就自己好，不用手動關）
+#  少了短視窗，一次短暫爆發會讓告警在事情早就恢復後還亮好幾小時。
+# ─────────────────────────────────────────────────────────────────
+- name: slo-burn-rate
+  rules:
+
+    # ── SLI 1 可用性（預算 0.1%）──
+    - alert: SLOFastBurnAvailability
+      expr: >-
+        (1 - slo:payment_api_availability:ratio_rate1h) > (14.4 * 0.001)
+        and
+        (1 - slo:payment_api_availability:ratio_rate5m) > (14.4 * 0.001)
+      for: 2m
+      labels: { severity: critical, category: slo, slo: payment_api_availability }
+      annotations:
+        summary: "payment-api 可用性預算高速燒錄（14.4x）"
+        description: >-
+          過去 1 小時的失誤率超過預算容許速度的 14.4 倍，且此刻仍在燒。
+          照這個速度，30 天的錯誤預算會在約 2 天內見底。
+          先看 ServiceDown / ServiceSlowResponse 是否同時亮著。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/slo-burn-rate.md"
+
+    - alert: SLOSlowBurnAvailability
+      expr: >-
+        (1 - slo:payment_api_availability:ratio_rate6h) > (6 * 0.001)
+        and
+        (1 - slo:payment_api_availability:ratio_rate30m) > (6 * 0.001)
+      for: 15m
+      labels: { severity: warning, category: slo, slo: payment_api_availability }
+      annotations:
+        summary: "payment-api 可用性預算穩定流失（6x）"
+        description: >-
+          過去 6 小時持續以 6 倍速度消耗預算。不需要半夜處理，
+          但這代表有個沒被修掉的持續性問題，該開單追。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/slo-burn-rate.md"
+
+    # ── SLI 2 延遲（預算 0.5%）──
+    - alert: SLOFastBurnLatency
+      expr: >-
+        (1 - slo:payment_api_latency:ratio_rate1h) > (14.4 * 0.005)
+        and
+        (1 - slo:payment_api_latency:ratio_rate5m) > (14.4 * 0.005)
+      for: 2m
+      labels: { severity: critical, category: slo, slo: payment_api_latency }
+      annotations:
+        summary: "payment-api 延遲預算高速燒錄（14.4x）"
+        description: >-
+          超過 250ms 的探測比例遠高於預算。這是事故 #1（GC 死亡螺旋）
+          在 SLO 層會呈現的形狀：服務還活著、還回 200，只是每次都很慢。
+          對照 JvmGcTimeRatioHigh 與 JvmOldGenHigh。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/slo-burn-rate.md"
+
+    - alert: SLOSlowBurnLatency
+      expr: >-
+        (1 - slo:payment_api_latency:ratio_rate6h) > (6 * 0.005)
+        and
+        (1 - slo:payment_api_latency:ratio_rate30m) > (6 * 0.005)
+      for: 15m
+      labels: { severity: warning, category: slo, slo: payment_api_latency }
+      annotations:
+        summary: "payment-api 延遲預算穩定流失（6x）"
+        description: >-
+          回應時間長期偏慢但還沒到會觸發 ServiceSlowResponse 的程度。
+          這是劣化的早期形狀，值得在變成事故前查。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/slo-burn-rate.md"
+
+    # ── SLI 3 工作進度（預算 1%）──
+    - alert: SLOFastBurnWorkProgress
+      expr: >-
+        (1 - slo:engine_work_progress:ratio_rate1h) > (14.4 * 0.01)
+        and
+        (1 - slo:engine_work_progress:ratio_rate5m) > (14.4 * 0.01)
+      for: 2m
+      labels: { severity: critical, category: slo, slo: engine_work_progress }
+      annotations:
+        summary: "trading-engine 工作進度預算高速燒錄（14.4x）"
+        description: >-
+          引擎有大量時間沒有產出任何訂單。⚠ 注意：此時
+          probe_success 與 probe_duration 很可能完全正常 ——
+          2026-09-03 05:46–07:41 UTC 就是這樣，可用性與延遲 SLI 全程 100%，
+          行程也沒重啟（jvm_uptime_seconds 持續遞增），但工作停了 115 分鐘。
+          不要因為健康檢查是綠的就把這條當誤報。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/slo-burn-rate.md"
+
+    - alert: SLOSlowBurnWorkProgress
+      expr: >-
+        (1 - slo:engine_work_progress:ratio_rate6h) > (6 * 0.01)
+        and
+        (1 - slo:engine_work_progress:ratio_rate30m) > (6 * 0.01)
+      for: 15m
+      labels: { severity: warning, category: slo, slo: engine_work_progress }
+      annotations:
+        summary: "trading-engine 工作進度預算穩定流失（6x）"
+        description: >-
+          產出斷斷續續。事故 #2 的靜默劣化就是從這個形狀開始，
+          只是當時沒有任何指標在看它，所以一路滑到六天。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/slo-burn-rate.md"

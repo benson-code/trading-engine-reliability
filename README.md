@@ -20,7 +20,8 @@ This repo turns that hard-won instinct into **executable proof at the DB layer**
 - **No WireMock theatre** — every API and integration test exercises the real `PaymentService` through an embedded HTTP server, not a mocked stand-in, so a green suite means the actual service behaves ([commit `668bfc4`](https://github.com/benson-code/trading-engine-reliability/commit/668bfc4) shows the mock-to-real migration).
 - **Payment-grade input & access control** — currency must match the account (`422`), amount precision is bounded to `DECIMAL(18,8)` (`400 INVALID_PRECISION`, no silent truncation), and the payment endpoints require an `X-API-Key` (constant-time compared) when configured ([`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)).
 - **The frontend is tested for the defect class that took the backend down** — `useTradingEngine` held two collections that only ever grew, one of them copying itself on every message. A Pixel 7 endurance test drives 40k orders — roughly 33 minutes of session — and asserts retained heap did not grow with them: **~2,070 KB → 401 KB**, with per-batch time flattening from 2.27x to 0.98x ([`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)).
-- **Observability built from real incidents** — 24 Prometheus alert rules whose thresholds are reverse-engineered from two measured production incidents · 12 runbooks with CI-enforced coverage · Alertmanager routing with four inhibition rules · one-command incident-scene preservation.
+- **SLOs with error budgets, and one of them is already blown** — three SLIs, each matching a failure mode that actually happened on this host: availability, latency (250ms), and **work progress**. Measured over 3 days: availability **100.0000%**, latency **100.0000%**, work progress **97.3611%** against a 99% target — **163.9% over budget**. On 2026-09-03 the engine produced nothing for 115 minutes while `probe_success` stayed 1, latency stayed ~1ms and the process never restarted: the first two SLIs reported a perfect service throughout. Six multi-window multi-burn-rate alerts (14.4x paging, 6x ticketing) sit on top ([`docs/slo.md`](docs/slo.md)).
+- **Observability built from real incidents** — 30 Prometheus alert rules whose thresholds are reverse-engineered from two measured production incidents · 13 runbooks with CI-enforced coverage · Alertmanager routing with four inhibition rules · one-command incident-scene preservation.
 - **Two independent test layers against the running service** — the Java suite in CI, plus a Python (`pytest`) contract / validation / idempotency / concurrency suite and `k6` load scripts. Both boot a throwaway instance on an OS-assigned port and run it `nice -n 15`, so a run can never collide with — or write into — the long-lived services sharing this host ([`python-qa/`](python-qa/README.md)).
 - **CI-enforced quality** — 104 Java tests plus a mobile-web endurance suite · a declarative `BOUNDED-BY` gate that fails any long-lived collection with no eviction and no stated reason it cannot grow · admin-enforced branch protection on `main` · PR-only · five required checks must be green (secret scan first) · rebase-merge preserves the P1/P2/P3 commit narrative.
 
@@ -40,7 +41,7 @@ trading-engine-reliability/        ← Monorepo root (Maven parent POM)
 │   └── systemd/                   ← Service units and credential handling
 ├── docs/
 │   ├── incident-2026-07-14-*/     ← Incident RCA with preserved evidence + SHA256 manifests
-│   └── runbooks/                  ← 12 alert-response SOPs (CI-enforced coverage)
+│   └── runbooks/                  ← 13 alert-response SOPs (CI-enforced coverage)
 └── tools/                         ← CI quality gates + incident forensics
 ```
 
@@ -542,7 +543,7 @@ checks three invariants:
 - **R2** the file it points at exists
 - **R3** no orphaned runbooks (a document no alert references)
 
-12 runbooks cover all 24 alerts. Each follows the same six sections: trigger
+13 runbooks cover all 30 alerts. Each follows the same six sections: trigger
 conditions · impact · first three minutes · stopping the bleeding · root-cause
 investigation · follow-up. See [`docs/runbooks/`](docs/runbooks/README.md).
 

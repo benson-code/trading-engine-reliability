@@ -1,0 +1,558 @@
+{
+ "uid": "slo-error-budget",
+ "title": "SLO 與錯誤預算 — orion-dev",
+ "description": "三個 SLI 對應三種真的發生過的失效模式。定義與目標值推導見 docs/slo.md；燒錄時的處理見 docs/runbooks/slo-burn-rate.md。",
+ "tags": [
+  "sre",
+  "slo",
+  "error-budget"
+ ],
+ "editable": true,
+ "schemaVersion": 39,
+ "version": 1,
+ "refresh": "1m",
+ "timezone": "utc",
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "panels": [
+  {
+   "type": "row",
+   "title": "SLO 達成率（3 天視窗）",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "panels": []
+  },
+  {
+   "type": "stat",
+   "title": "可用性 payment-api",
+   "description": "probe_success 探測成功率｜目標 99.9%｜3 天視窗，由原始指標回算",
+   "gridPos": {
+    "h": 5,
+    "w": 8,
+    "x": 0,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 4,
+     "min": 0,
+     "max": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 0.999
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "expr": "avg_over_time(probe_success{instance=\"http://127.0.0.1:8091/api/v1/health\"}[3d])",
+     "refId": "A",
+     "legendFormat": "目標 99.9%"
+    }
+   ]
+  },
+  {
+   "type": "stat",
+   "title": "延遲 < 250ms",
+   "description": "探測在 250ms 內完成的比例｜目標 99.5%｜3 天視窗，由原始指標回算",
+   "gridPos": {
+    "h": 5,
+    "w": 8,
+    "x": 8,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 4,
+     "min": 0,
+     "max": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 0.995
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "expr": "avg_over_time((probe_duration_seconds{instance=\"http://127.0.0.1:8091/api/v1/health\"} < bool 0.25)[3d:15s])",
+     "refId": "A",
+     "legendFormat": "目標 99.5%"
+    }
+   ]
+  },
+  {
+   "type": "stat",
+   "title": "工作進度 引擎產出",
+   "description": "有實際產生訂單的時間比例（事故 #2 的 SLI）｜目標 99%｜3 天視窗，由原始指標回算",
+   "gridPos": {
+    "h": 5,
+    "w": 8,
+    "x": 16,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 4,
+     "min": 0,
+     "max": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 0.99
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "expr": "avg_over_time((rate(engine_orders_generated_total[5m]) > bool 0)[3d:1m])",
+     "refId": "A",
+     "legendFormat": "目標 99%"
+    }
+   ]
+  },
+  {
+   "type": "row",
+   "title": "錯誤預算",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 6
+   },
+   "panels": []
+  },
+  {
+   "type": "gauge",
+   "title": "預算剩餘 — 可用性 payment-api",
+   "description": "1 = 完全沒用；0 = 剛好用完；負 = 超支。由記錄規則 slo:error_budget_remaining 提供，30 天視窗需累積至 2026-10-06 後才具意義。",
+   "gridPos": {
+    "h": 5,
+    "w": 8,
+    "x": 0,
+    "y": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 1,
+     "min": -1,
+     "max": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0
+       },
+       {
+        "color": "green",
+        "value": 0.25
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "showThresholdLabels": false,
+    "showThresholdMarkers": true,
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "expr": "slo:error_budget_remaining{slo=\"payment_api_availability\"}",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "type": "gauge",
+   "title": "預算剩餘 — 延遲 < 250ms",
+   "description": "1 = 完全沒用；0 = 剛好用完；負 = 超支。由記錄規則 slo:error_budget_remaining 提供，30 天視窗需累積至 2026-10-06 後才具意義。",
+   "gridPos": {
+    "h": 5,
+    "w": 8,
+    "x": 8,
+    "y": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 1,
+     "min": -1,
+     "max": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0
+       },
+       {
+        "color": "green",
+        "value": 0.25
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "showThresholdLabels": false,
+    "showThresholdMarkers": true,
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "expr": "slo:error_budget_remaining{slo=\"payment_api_latency\"}",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "type": "gauge",
+   "title": "預算剩餘 — 工作進度 引擎產出",
+   "description": "1 = 完全沒用；0 = 剛好用完；負 = 超支。由記錄規則 slo:error_budget_remaining 提供，30 天視窗需累積至 2026-10-06 後才具意義。",
+   "gridPos": {
+    "h": 5,
+    "w": 8,
+    "x": 16,
+    "y": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 1,
+     "min": -1,
+     "max": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0
+       },
+       {
+        "color": "green",
+        "value": 0.25
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "showThresholdLabels": false,
+    "showThresholdMarkers": true,
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "expr": "slo:error_budget_remaining{slo=\"engine_work_progress\"}",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "type": "row",
+   "title": "燒錄率（1 小時視窗）",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 12
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "錯誤預算燒錄率",
+   "description": "燒錄率 = 失誤率 ÷ 預算允許速度。1x = 剛好 30 天用完；6x 開單；14.4x 立刻叫人。三條同一個單位，共用一個 Y 軸。",
+   "gridPos": {
+    "h": 9,
+    "w": 24,
+    "x": 0,
+    "y": 13
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "decimals": 2,
+     "min": 0,
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "axisLabel": "燒錄率（倍）",
+      "thresholdsStyle": {
+       "mode": "dashed"
+      }
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 6
+       },
+       {
+        "color": "red",
+        "value": 14.4
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "expr": "(1 - slo:payment_api_availability:ratio_rate1h) / 0.001",
+     "refId": "A",
+     "legendFormat": "可用性"
+    },
+    {
+     "expr": "(1 - slo:payment_api_latency:ratio_rate1h) / 0.005",
+     "refId": "B",
+     "legendFormat": "延遲"
+    },
+    {
+     "expr": "(1 - slo:engine_work_progress:ratio_rate1h) / 0.01",
+     "refId": "C",
+     "legendFormat": "工作進度"
+    }
+   ]
+  },
+  {
+   "type": "row",
+   "title": "工作進度 SLI 明細 — 事故 #2 的形狀",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 22
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "引擎有沒有在產出訂單（1 = 有）",
+   "description": "2026-09-03 05:46–07:41 UTC 這條掉到 0 共 115 分鐘，而同期間 probe_success=1、probe_duration≈1ms、jvm_uptime_seconds 持續遞增（行程沒重啟）——可用性與延遲 SLI 全程 100%，只有這條看得見。",
+   "gridPos": {
+    "h": 7,
+    "w": 24,
+    "x": 0,
+    "y": 23
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "min": 0,
+     "max": 1,
+     "decimals": 0,
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "lineWidth": 2,
+      "fillOpacity": 20,
+      "showPoints": "never",
+      "axisLabel": "有產出 = 1"
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "停擺",
+         "color": "red"
+        },
+        "1": {
+         "text": "有產出",
+         "color": "green"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "targets": [
+    {
+     "expr": "slo:engine_work_progress:good",
+     "refId": "A",
+     "legendFormat": "工作進度"
+    }
+   ]
+  }
+ ]
+}
