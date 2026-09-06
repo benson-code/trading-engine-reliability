@@ -68,7 +68,7 @@ make runbooks        # 檢查告警 ↔ SOP 覆蓋率
 
 ## 告警設計
 
-### 六層，各回答一個不同的問題
+### 八層，各回答一個不同的問題
 
 | 組 | 問題 | 條數 |
 |---|---|---|
@@ -107,7 +107,7 @@ Alertmanager 設有 4 條抑制規則，避免一次故障噴出數十則通知�
 ## 處理 SOP
 
 **每一條告警都必須有 `runbook_url`，由 CI 強制檢查。**
-見 [`docs/runbooks/`](../../docs/runbooks/README.md)（13 份，覆蓋 24 條告警）。
+見 [`docs/runbooks/`](../../docs/runbooks/README.zh-TW.md)（15 份，覆蓋 37 條告警）。
 
 `tools/check-alert-runbooks.sh` 檢查三件事：
 - R1 每條 alert 都有 `runbook_url`

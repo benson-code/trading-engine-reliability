@@ -10,7 +10,7 @@
 
 ---
 
-## Why this layer exists alongside 24 symptom alerts
+## Why this layer exists alongside the symptom alerts
 
 `alerts.yml` and `slo.yml` answer two different questions:
 

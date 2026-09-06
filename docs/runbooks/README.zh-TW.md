@@ -36,6 +36,9 @@
 | [redis-down](redis-down.zh-TW.md) | RedisDown | critical |
 | [mysql-down](mysql-down.zh-TW.md) | MysqlDown | critical |
 | [mysql-saturation](mysql-saturation.zh-TW.md) | MysqlConnectionsHigh / MysqlSlowQueriesRising | warning |
+| [slo-burn-rate](slo-burn-rate.zh-TW.md) | SLOFastBurn* / SLOSlowBurn*（6 條） | critical / warning |
+| [payment-api-error-rate](payment-api-error-rate.zh-TW.md) | PaymentApiErrorRateHigh | critical |
+| [monitoring-degraded](monitoring-degraded.zh-TW.md) | DeadMansSwitch / ScrapeTargetDown / ScrapeDurationHigh / PrometheusRuleEvaluationFailing / PrometheusTsdbCompactionFailing / AlertmanagerNotificationFailing | critical / warning |
 
 ## 通用原則
 

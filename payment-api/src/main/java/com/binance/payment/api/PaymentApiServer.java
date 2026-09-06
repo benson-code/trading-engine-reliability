@@ -4,7 +4,9 @@ import com.binance.payment.model.PaymentRequest;
 import com.binance.payment.model.PaymentResponse;
 import com.binance.payment.service.PaymentService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.binance.payment.metrics.Metrics;
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
@@ -44,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 public class PaymentApiServer {
 
     private final HttpServer server;
+    private final Metrics metrics = new Metrics();
     private final PaymentService paymentService;
     private final ObjectMapper mapper = new ObjectMapper();
     private final int port;
@@ -109,8 +112,15 @@ public class PaymentApiServer {
         // probe-close-rebind window (eliminates the BUG-02-class TOCTOU).
         this.server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
         this.port = server.getAddress().getPort();   // the actual bound port
-        server.createContext("/api/v1/payments", this::handlePayments);
-        server.createContext("/api/v1/health",   this::handleHealth);
+        server.createContext("/api/v1/payments",
+                instrumented("/api/v1/payments", this::handlePayments));
+        server.createContext("/api/v1/health",
+                instrumented("/api/v1/health", this::handleHealth));
+        // /metrics is deliberately NOT instrumented and NOT authenticated:
+        // it is scrape traffic, not caller traffic. Counting it would inflate
+        // the request rate with the monitoring system's own polling, and
+        // requiring X-API-Key would simply stop Prometheus from scraping.
+        server.createContext("/metrics", this::handleMetrics);
         server.setExecutor(Executors.newFixedThreadPool(8));
     }
 
@@ -122,6 +132,39 @@ public class PaymentApiServer {
     }
 
     public int getPort() { return port; }
+
+    // ── /metrics ─────────────────────────────────────────────────────────────
+
+    /**
+     * Wraps a handler so every served request is measured in one place.
+     *
+     * <p>{@code route} is passed in as a literal rather than read from the
+     * request URI. That is what keeps metric cardinality bounded: a caller
+     * cannot create new label values by requesting new paths.
+     */
+    private HttpHandler instrumented(String route, HttpHandler delegate) {
+        return ex -> {
+            long start = System.nanoTime();
+            try {
+                delegate.handle(ex);
+            } finally {
+                // getResponseCode() is -1 when the handler threw before sending
+                // headers. Record that as 500: for an error-rate SLI the safe
+                // direction is to count an unserved request as a failure.
+                int status = ex.getResponseCode();
+                metrics.observe(route, ex.getRequestMethod(),
+                                status < 0 ? 500 : status, System.nanoTime() - start);
+            }
+        };
+    }
+
+    private void handleMetrics(HttpExchange ex) throws IOException {
+        byte[] body = metrics.render().getBytes(StandardCharsets.UTF_8);
+        ex.getResponseHeaders().set("Content-Type",
+                "text/plain; version=0.0.4; charset=utf-8");
+        ex.sendResponseHeaders(200, body.length);
+        try (OutputStream os = ex.getResponseBody()) { os.write(body); }
+    }
 
     // ── /api/v1/payments[/{jobId}/status] ────────────────────────────────────
 

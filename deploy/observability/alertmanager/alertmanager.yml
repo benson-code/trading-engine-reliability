@@ -19,6 +19,23 @@ route:
   receiver: 'default'
 
   routes:
+    # ── 心跳（死人開關）──────────────────────────────────────────
+    # DeadMansSwitch 是一條「永遠在響」的告警。它本身不代表任何故障，
+    # 它代表的是「從 Prometheus 規則評估 → Alertmanager → 通知管道
+    # 這整條鏈路現在還活著」。
+    #
+    # 判讀方式跟其他告警相反：**收到它是正常，收不到才是異常。**
+    # 正式環境會把它接到外部的 heartbeat 服務（Dead Man's Snitch、
+    # Healthchecks.io 之類），由對方在超時未收到時反過來通知你。
+    #
+    # 為什麼這個系統特別需要它：本專案的兩次事故都是同一個形狀 ——
+    # 服務安靜下來，而所有人把沉默當成健康。監控系統自己也會這樣壞。
+    - matchers: [ 'alertname = "DeadMansSwitch"' ]
+      receiver: 'heartbeat'
+      group_wait: 0s
+      group_interval: 5m
+      repeat_interval: 5m     # 必須遠短於外部 snitch 的逾時設定
+
     # critical 走值班管道，而且不等 group_wait
     - matchers: [ 'severity = "critical"' ]
       receiver: 'critical-oncall'
@@ -38,9 +55,13 @@ route:
 # ── 抑制規則：SRE 的精髓 ──────────────────────────────────────────
 # 「主機掛了就不要再噴 20 條服務告警」—— 只留下根因那一則。
 inhibit_rules:
+  # ⚠ 注意每一條 target_matchers 都排除了 DeadMansSwitch。
+  #   心跳被抑制 = 外部 snitch 判定鏈路死亡 = 假警報。
+  #   「抑制規則意外殺掉心跳」是這個模式最典型的踩雷方式。
+
   # 1. 主機掛掉 → 抑制該主機上所有其他告警
   - source_matchers: [ 'alertname = "HostDown"' ]
-    target_matchers: [ 'severity =~ "critical|warning"' ]
+    target_matchers: [ 'severity =~ "critical|warning"', 'alertname != "DeadMansSwitch"' ]
     equal: ['instance']
 
   # 2. 同一個服務同時有 critical 和 warning → 只留 critical
@@ -77,6 +98,11 @@ receivers:
     #     title: '{{ .CommonLabels.alertname }}'
     #     text: '{{ range .Alerts }}{{ .Annotations.summary }}
     #            Runbook: {{ .Annotations.runbook_url }}{{ end }}'
+
+  - name: 'heartbeat'
+    webhook_configs:
+      - url: 'http://127.0.0.1:9199/heartbeat'
+        send_resolved: false   # 心跳沒有「解除」的概念，它不該停
 
   - name: 'capacity-planning'
     webhook_configs:

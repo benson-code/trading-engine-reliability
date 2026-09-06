@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════
-#  告警規則 —— 六層，每一層回答一個不同的問題
+#  告警規則 —— 八層，每一層回答一個不同的問題
 #
 #   1 availability  使用者現在打得到嗎？        （黑箱）
 #   2 work-progress 工作有在前進嗎？            （事故 #2 的簽名）
@@ -7,6 +7,11 @@
 #   4 saturation    資源快用完了嗎？            （USE 方法）
 #   5 capacity      多久之後會用完？            （容量規劃）
 #   6 dependencies  相依的元件還在嗎？          （MySQL / Redis）
+#   7 meta         監控系統自己還活著嗎？      （含死人開關）
+#   8 application  請求真的成功了嗎？          （服務自報的 RED）
+#
+#  第 7 層是把前面兩次事故的教訓套回監控系統自己：
+#  「沒有告警」有兩種可能 —— 一切正常，或告警系統死了。
 #
 #  每條規則都必須有 runbook_url。沒有 SOP 的告警等於把問題丟給
 #  半夜被叫起來的人自己想 —— 那是告警設計的失職，不是值班的問題。
@@ -271,3 +276,137 @@ groups:
           淘汰本身是健康的（表示上限有在生效），但速率過高代表容量不足，
           cache 命中率會下降，壓力會轉嫁到後端 DB。
         runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/redis-unbounded.md"
+
+# ─────────────────────────────────────────────────────────────────
+# 7. 監控系統自身 —— 誰在監控監控系統？
+#
+#    這一組是本專案兩次事故的教訓套用在監控堆疊自己身上。
+#
+#    事故 #1 與 #2 的共同形狀：服務安靜下來，而所有人把沉默
+#    當成健康。監控系統會用完全一樣的方式壞掉 ——
+#    規則評估失敗、採集器掛掉、通知管道靜默，
+#    而儀表板上什麼都不會變紅，因為根本沒有資料進來。
+#
+#    「沒有告警」有兩種可能：一切正常，或告警系統死了。
+#    這一組的存在就是為了把這兩種區分開來。
+# ─────────────────────────────────────────────────────────────────
+- name: meta
+  rules:
+
+    # ── 死人開關 ─────────────────────────────────────────────────
+    # 這條永遠在響。它不代表任何故障。
+    #
+    # 判讀方式跟其他所有告警相反：**收到它是正常，收不到才是異常。**
+    # Alertmanager 每 5 分鐘把它送到 /heartbeat；正式環境會改送到外部
+    # heartbeat 服務，由對方在逾時未收到時反過來通知你。
+    #
+    # 它涵蓋的是整條鏈路：Prometheus 還在評估規則嗎？Alertmanager 還活著
+    # 嗎？webhook 還通嗎?任何一段斷掉，心跳就停 —— 而這是唯一能偵測
+    # 「監控系統整個安靜死掉」的方法。
+    - alert: DeadMansSwitch
+      expr: vector(1)
+      labels: { severity: none, category: meta, service: monitoring }
+      annotations:
+        summary: "心跳 —— 收到代表告警鏈路正常"
+        description: >-
+          這條告警刻意永遠處於 firing 狀態，用來證明
+          Prometheus 規則評估 → Alertmanager 路由 → 通知管道
+          這整條鏈路是通的。**它停止抵達，才是需要處理的事件。**
+          外部 heartbeat 服務的逾時應設為遠大於 5 分鐘（建議 15 分鐘）。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
+    # ── 採集面 ───────────────────────────────────────────────────
+    # 排除 job="node"：主機掛掉由 HostDown 負責，這裡只管其他採集目標。
+    - alert: ScrapeTargetDown
+      expr: up{job!="node"} == 0
+      for: 5m
+      labels: { severity: warning, category: meta, service: "{{ $labels.job }}" }
+      annotations:
+        summary: "採集目標 {{ $labels.job }}/{{ $labels.instance }} 抓不到"
+        description: >-
+          Prometheus 連續 5 分鐘無法採集這個目標。該目標的所有指標
+          都會停止更新 —— 而依賴它的告警會安靜下來，看起來像一切正常。
+          這正是「沉默 ≠ 健康」在監控層的版本。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
+    - alert: ScrapeDurationHigh
+      expr: scrape_duration_seconds > 5
+      for: 10m
+      labels: { severity: warning, category: meta, service: "{{ $labels.job }}" }
+      annotations:
+        summary: "{{ $labels.job }} 採集耗時 {{ $value | humanizeDuration }}"
+        description: >-
+          採集時間逼近 scrape_interval（15s）。超過就會開始漏採樣，
+          指標出現破洞，而 rate() 與 avg_over_time() 會靜靜地算錯。
+          通常代表目標本身在飽和。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
+    # ── 規則評估面 ───────────────────────────────────────────────
+    # 規則評估失敗 = 告警不再被計算 = 靜默失效。
+    # 這是整組裡最危險的一條：沒有任何症狀，只是不再有人在看。
+    - alert: PrometheusRuleEvaluationFailing
+      expr: increase(prometheus_rule_evaluation_failures_total[10m]) > 0
+      for: 5m
+      labels: { severity: critical, category: meta, service: prometheus }
+      annotations:
+        summary: "Prometheus 規則評估失敗（群組 {{ $labels.rule_group }}）"
+        description: >-
+          規則評估失敗代表該群組的告警與記錄規則**沒有被計算**。
+          告警不會響，記錄序列會出現破洞，而儀表板不會顯示任何異常。
+          常見原因：規則引用了不存在的指標、查詢逾時、或 subquery 太貴。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
+    - alert: PrometheusTsdbCompactionFailing
+      expr: increase(prometheus_tsdb_compactions_failed_total[1h]) > 0
+      for: 15m
+      labels: { severity: warning, category: meta, service: prometheus }
+      annotations:
+        summary: "Prometheus TSDB compaction 失敗"
+        description: >-
+          Compaction 失敗會讓磁碟用量持續上升，最終寫入停止。
+          先確認磁碟空間（見 disk-capacity runbook）與 /prometheus 的權限。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
+    # ── 通知面 ───────────────────────────────────────────────────
+    # 告警算對了、也路由了，但送不出去 —— 對值班的人來說等同於沒有告警。
+    - alert: AlertmanagerNotificationFailing
+      expr: increase(alertmanager_notifications_failed_total[10m]) > 0
+      for: 5m
+      labels: { severity: critical, category: meta, service: alertmanager }
+      annotations:
+        summary: "Alertmanager 通知送出失敗（{{ $labels.integration }}）"
+        description: >-
+          規則判斷正確、路由也對，但通知沒送到。對值班的人而言，
+          這跟「完全沒有監控」是同一件事，差別只在你以為自己有。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
+# ─────────────────────────────────────────────────────────────────
+# 8. 應用層 —— 請求真的成功了嗎？
+#
+#    在 payment-api 開始暴露 /metrics 之前，這個問題無法回答。
+#    黑箱探測只打 /health，它回 200 不代表 /payments 沒有在噴 500。
+#
+#    這一組只有一條規則，是刻意的：延遲已經由 ServiceSlowResponse
+#    （黑箱視角）與 SLO 燒錄率（預算視角）覆蓋，再加一條 p99 告警
+#    只會製造重複通知。錯誤率則是全新的訊號 —— 過去完全沒有。
+# ─────────────────────────────────────────────────────────────────
+- name: application
+  rules:
+
+    - alert: PaymentApiErrorRateHigh
+      expr: >-
+        sum by (deployment) (rate(payment_requests_total{status=~"5.."}[5m]))
+        /
+        sum by (deployment) (rate(payment_requests_total[5m]))
+        > 0.01
+      for: 5m
+      labels: { severity: critical, category: application, service: payment-api }
+      annotations:
+        summary: "payment-api（{{ $labels.deployment }}）5xx 比例 {{ $value | humanizePercentage }}"
+        description: >-
+          伺服器端錯誤佔比連續 5 分鐘超過 1%。這是這套堆疊過去量不到的訊號：
+          黑箱探測只打 /health，它回 200 並不代表 /payments 沒有在噴 500。
+          注意 `deployment` 標籤 —— host 與 container 跑的是同一份程式，
+          只有一邊出錯通常代表環境差異（設定、資源限制、相依），
+          兩邊一起出錯才是程式本身的問題。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/payment-api-error-rate.md"

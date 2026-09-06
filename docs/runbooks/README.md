@@ -38,6 +38,8 @@ Every runbook has the same six sections:
 | [mysql-down](mysql-down.md) | MysqlDown | critical |
 | [mysql-saturation](mysql-saturation.md) | MysqlConnectionsHigh / MysqlSlowQueriesRising | warning |
 | [slo-burn-rate](slo-burn-rate.md) | SLOFastBurn* / SLOSlowBurn* (6 rules) | critical / warning |
+| [payment-api-error-rate](payment-api-error-rate.md) | PaymentApiErrorRateHigh | critical |
+| [monitoring-degraded](monitoring-degraded.md) | DeadMansSwitch / ScrapeTargetDown / ScrapeDurationHigh / PrometheusRuleEvaluationFailing / PrometheusTsdbCompactionFailing / AlertmanagerNotificationFailing | critical / warning |
 
 ## Standing principles
 

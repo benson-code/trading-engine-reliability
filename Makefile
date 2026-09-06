@@ -9,6 +9,11 @@
 # ?= 的意思是「如果外面沒給，才用這個預設值」。
 # 所以 `make run PORT=9000` 可以覆寫，CI 也能用環境變數注入。
 PORT       ?= 8091
+# 容器要走另一個埠：8091 已經被 systemd 的 binance-payment-api.service 佔用。
+# 兩份實例同時存在是刻意的 —— prometheus.yml 分別以 deployment="host" 與
+# deployment="container" 兩個標籤採集它們，好比對同一份程式在兩種執行環境
+# 下的行為差異。
+DOCKER_PORT ?= 8094
 MVN        ?= mvn --no-transfer-progress
 API_JAR    := payment-api/target/payment-api-qa-framework-1.0.0.jar
 OBS_DIR    := deploy/observability
@@ -121,7 +126,7 @@ docker-build: ## 建置 payment-api 容器映像檔
 
 .PHONY: docker-run
 docker-run: ## 以容器方式啟動 payment-api
-	docker run -d --rm --name payment-api -p $(PORT):8091 $(IMAGE)
+	docker run -d --rm --name payment-api -p $(DOCKER_PORT):8091 $(IMAGE)
 	@echo "  等待容器變健康..."
 	@for i in $$(seq 1 20); do \
 		st=$$(docker inspect -f '{{.State.Health.Status}}' payment-api 2>/dev/null); \

@@ -34,6 +34,23 @@ scrape_configs:
     static_configs:
       - targets: ['127.0.0.1:9093']
 
+  # ── 應用層：payment-api 自己暴露的 RED 指標 ──────────────────────
+  #
+  #    在這個 job 出現之前，關於這支服務的每一個訊號都來自外部黑箱探測。
+  #    黑箱能回答「活著嗎」，但回答不了定義一支請求型服務的三個問題：
+  #    多少請求（Rate）、多少失敗（Errors）、花多久（Duration）。
+  #
+  #    ⚠ 這一層跟 node 的 textfile collector（jstat）刻意並存，不是取代：
+  #    /metrics 由這支 JVM 自己提供，事故 #1 那種 GC 飽和會把它一起餓死。
+  #    外部採集器才是獨立的觀測者。兩者同時失聯 = 進程真的完了。
+  - job_name: payment-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['127.0.0.1:8091']
+        labels: { deployment: host }
+      - targets: ['127.0.0.1:8094']
+        labels: { deployment: container }
+
   # ── 主機層：CPU / 記憶體 / 磁碟 / 網路 ──────────────────────────
   #    同時透過 textfile collector 帶入 jstat 採樣的 JVM 指標
   #    與 trading-engine 的業務指標（jvm.prom / engine.prom）
