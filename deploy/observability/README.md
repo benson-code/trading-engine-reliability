@@ -66,6 +66,28 @@ make runbooks        # 檢查告警 ↔ SOP 覆蓋率
 
 ---
 
+## 採集的三個層次
+
+同一個問題刻意從三個獨立的角度量，因為任何單一角度都會在某種故障下失明。
+
+| 層次 | 來源 | 看得到什麼 | 什麼時候會瞎掉 |
+|---|---|---|---|
+| **黑箱** | blackbox_exporter | 使用者打不打得到、快不快 | 只打 `/health` 時看不見 `/payments` 在噴 500 |
+| **合成交易** | blackbox `payment_create` 模組 | 真實交易路徑走不走得通 | 需要服務願意收請求 |
+| **白箱（服務自報）** | payment-api `/metrics` | 請求速率、錯誤率、延遲分布 | 事故 #1 那種 GC 飽和會把它一起餓死 |
+| **外部採集器** | cron → textfile → node_exporter | JVM / GC / 引擎進度 | cron 掛掉時指標會**凍結**而非消失 |
+
+最後一項是 2026-09-06 補上 `TextfileCollectorStale` 的原因：
+凍結的指標讀起來是健康的，而 `jvm_jstat_attach_success` 一旦凍在 1，
+`JstatAttachFailed` 就永遠不可能觸發。
+
+> **合成交易探測的 `idempotency_key` 是固定值。** 每 15 秒一次，
+> 若每次都用新 key，會以每天約 5,760 筆的速度無限累積付款紀錄 ——
+> 那正是這個 repo 在追的那類缺陷，由監控系統自己製造出來。
+> 固定 key 讓首次呼叫建立（202）、之後皆為冪等重放（200），狀態永遠有界。
+
+---
+
 ## 告警設計
 
 ### 八層，各回答一個不同的問題
@@ -78,6 +100,9 @@ make runbooks        # 檢查告警 ↔ SOP 覆蓋率
 | `saturation` | 資源快用完了嗎？（USE）| 4 |
 | `capacity` | 多久之後會用完？（predict_linear）| 4 |
 | `dependencies` | 相依元件還在嗎？| 6 |
+| `meta` | 監控系統自己還活著嗎？（含死人開關與採集器凍結）| 8 |
+| `application` | 請求真的成功了嗎？（服務自報的 RED）| 1 |
+| `slo-burn-rate` | 錯誤預算燒得多快？（另存於 slo.yml）| 6 |
 
 ### 閾值來源
 

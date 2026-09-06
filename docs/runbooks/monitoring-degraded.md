@@ -100,6 +100,43 @@ deploy/observability/jstat-exporter.sh; echo "exit=$?"
 
 ---
 
+## The config on disk is not necessarily the config that is running
+
+Found on 2026-09-06: `obs-blackbox` had been running a configuration that **no
+longer existed on disk** since 09-03. A git operation (`checkout`, `reset --hard`)
+recreated the `blackbox/` directory, and the bind mount kept pointing at the old
+inode — so inside the container that directory was empty.
+
+The exporter was completely fine. It had read its config into memory at startup
+and kept serving probes from it. Editing `blackbox.yml` had no effect and
+produced no error. Three days, no symptom.
+
+This is config drift with a green dashboard — the same shape as everything else
+in this repo, except what silently diverged was the configuration rather than the
+code.
+
+```bash
+# Does every monitoring container still see the config on disk?
+make obs-mounts
+
+# It compares sha256, not just existence - a stale mount and a
+# half-written file are different failures.
+```
+
+If a mount is broken, recreate that container. A restart is not enough on some
+runtimes; force the recreate so the mount is re-established:
+
+```bash
+docker compose -f deploy/observability/docker-compose.yml \
+  up -d --force-recreate <service>
+```
+
+> Reloading is not a substitute for checking. `curl -X POST .../-/reload`
+> returning 500 is what exposed this — but a reload that is never attempted
+> will never tell you anything, which is why `make obs-mounts` exists.
+
+---
+
 ## First three minutes
 
 ```bash

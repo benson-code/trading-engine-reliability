@@ -1,0 +1,604 @@
+{
+ "uid": "payment-api-red",
+ "title": "payment-api RED — 速率 / 錯誤 / 延遲",
+ "description": "服務自報的 RED 指標與合成交易探測。定義見 docs/slo.md；錯誤率處理見 docs/runbooks/payment-api-error-rate.md。",
+ "tags": [
+  "sre",
+  "red",
+  "payment-api"
+ ],
+ "editable": true,
+ "schemaVersion": 39,
+ "version": 1,
+ "refresh": "30s",
+ "timezone": "utc",
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "panels": [
+  {
+   "type": "row",
+   "title": "RED — 這三個數字定義一支請求型服務",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "panels": []
+  },
+  {
+   "type": "stat",
+   "title": "Rate — 請求速率",
+   "description": "sum(rate(payment_requests_total[5m]))。含黑箱探測與合成交易產生的流量。",
+   "gridPos": {
+    "h": 5,
+    "w": 8,
+    "x": 0,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "decimals": 2,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum(rate(payment_requests_total[5m]))",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "type": "stat",
+   "title": "Errors — 5xx 佔比",
+   "description": "PaymentApiErrorRateHigh 的門檻是 1%。這個訊號在 /metrics 出現之前完全量不到——黑箱只打 /health，看不見 /payments 在噴 500。　⚠ 運算式刻意用 `or vector(0)` 補零：沒有 5xx 時若讓除法回傳空集合，面板會顯示「No data」——那跟「指標管線壞掉」長得一模一樣。「零錯誤」和「沒有資料」必須看得出差別。",
+   "gridPos": {
+    "h": 5,
+    "w": 8,
+    "x": 8,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 3,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0.001
+       },
+       {
+        "color": "red",
+        "value": 0.01
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "expr": "(sum(rate(payment_requests_total{status=~\"5..\"}[5m])) or vector(0)) / clamp_min(sum(rate(payment_requests_total[5m])), 0.0001)",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "type": "stat",
+   "title": "Duration — p99",
+   "description": "由直方圖算出。紅色門檻 250ms 就是 SLO 的延遲門檻，而直方圖刻意有一個 le=\"0.25\" 的邊界，所以這個數字與 SLI 同源。",
+   "gridPos": {
+    "h": 5,
+    "w": 8,
+    "x": 16,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "decimals": 4,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0.1
+       },
+       {
+        "color": "red",
+        "value": 0.25
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.99, sum by (le) (rate(payment_request_duration_seconds_bucket[5m])))",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "type": "timeseries",
+   "title": "請求速率（依部署環境）",
+   "description": "host = systemd 的 binance-payment-api；container = Docker。同一份程式跑在兩種環境，流量或行為出現差異時這裡看得到。",
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 6
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "axisLabel": "請求/秒"
+     },
+     "decimals": 2,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum by (deployment) (rate(payment_requests_total[5m]))",
+     "refId": "A",
+     "legendFormat": "{{deployment}}"
+    }
+   ]
+  },
+  {
+   "type": "timeseries",
+   "title": "延遲分位數",
+   "description": "p50 / p90 / p99 同一個單位、共用一個 Y 軸。虛線為 SLO 門檻 250ms。事故 #1 的 GC 停頓以「秒」計，會直接穿透這條線。",
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 14
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "axisLabel": "秒",
+      "thresholdsStyle": {
+       "mode": "dashed"
+      }
+     },
+     "decimals": 4,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 0.25
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.5, sum by (le) (rate(payment_request_duration_seconds_bucket[5m])))",
+     "refId": "A",
+     "legendFormat": "p50"
+    },
+    {
+     "expr": "histogram_quantile(0.9, sum by (le) (rate(payment_request_duration_seconds_bucket[5m])))",
+     "refId": "B",
+     "legendFormat": "p90"
+    },
+    {
+     "expr": "histogram_quantile(0.99, sum by (le) (rate(payment_request_duration_seconds_bucket[5m])))",
+     "refId": "C",
+     "legendFormat": "p99"
+    }
+   ]
+  },
+  {
+   "type": "timeseries",
+   "title": "錯誤率（依部署環境）",
+   "description": "只有一邊在噴錯 = 環境差異（設定、資源限制、相依）；兩邊一起 = 程式本身。詳見 runbooks/payment-api-error-rate.md。　⚠ 運算式刻意用 `or vector(0)` 補零：沒有 5xx 時若讓除法回傳空集合，面板會顯示「No data」——那跟「指標管線壞掉」長得一模一樣。「零錯誤」和「沒有資料」必須看得出差別。",
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 22
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "axisLabel": "5xx 佔比",
+      "thresholdsStyle": {
+       "mode": "dashed"
+      }
+     },
+     "decimals": 4,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 0.01
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "expr": "(sum by (deployment) (rate(payment_requests_total{status=~\"5..\"}[5m])) or (sum by (deployment) (rate(payment_requests_total[5m])) * 0)) / clamp_min(sum by (deployment) (rate(payment_requests_total[5m])), 0.0001)",
+     "refId": "A",
+     "legendFormat": "{{deployment}}"
+    }
+   ]
+  },
+  {
+   "type": "row",
+   "title": "合成交易 — 真的送一筆付款，不是只問「你還活著嗎」",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 30
+   },
+   "panels": []
+  },
+  {
+   "type": "stat",
+   "title": "合成交易探測",
+   "description": "每 15 秒對 /api/v1/payments 送出一筆真實付款請求。idempotency_key 固定，所以首次為建立（202）、之後皆為冪等重放（200），狀態永遠有界。",
+   "gridPos": {
+    "h": 5,
+    "w": 8,
+    "x": 0,
+    "y": 31
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "失敗",
+         "color": "red"
+        },
+        "1": {
+         "text": "成功",
+         "color": "green"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value_and_name",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "expr": "probe_success{probe_kind=\"synthetic-transaction\"}",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "type": "stat",
+   "title": "合成交易耗時",
+   "description": "走完 HTTP → 驗證 → repository → 回應的完整路徑，而不是 /health 的一個 200。",
+   "gridPos": {
+    "h": 5,
+    "w": 16,
+    "x": 8,
+    "y": 31
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "decimals": 4,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0.1
+       },
+       {
+        "color": "red",
+        "value": 0.25
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "auto",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "expr": "probe_duration_seconds{probe_kind=\"synthetic-transaction\"}",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "type": "timeseries",
+   "title": "合成交易耗時趨勢",
+   "description": "這條開始爬升，代表使用者真正會走的那條路徑在變慢——比 /health 的探測時間更接近使用者的感受。",
+   "gridPos": {
+    "h": 7,
+    "w": 24,
+    "x": 0,
+    "y": 36
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "axisLabel": "秒",
+      "thresholdsStyle": {
+       "mode": "dashed"
+      }
+     },
+     "decimals": 4,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 0.25
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "showLegend": true,
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "expr": "probe_duration_seconds{probe_kind=\"synthetic-transaction\"}",
+     "refId": "A",
+     "legendFormat": "POST /api/v1/payments"
+    }
+   ]
+  }
+ ]
+}

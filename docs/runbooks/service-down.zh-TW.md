@@ -4,6 +4,21 @@
 
 > **對應告警**：`ServiceDown` (`probe_success == 0`, 1m) · critical
 
+## 有兩種探測會觸發這條
+
+| 探測 | 做什麼 | 它失敗代表什麼 |
+|---|---|---|
+| `blackbox-http` | `GET /health` | 行程根本沒有回應 |
+| `blackbox-transaction` | 帶真實 body 打 `POST /api/v1/payments` | **交易路徑壞了,即使 `/health` 是好的** |
+
+先看是哪一個先失敗 —— 合成交易失敗但 `/health` 正常,代表行程活著、業務路徑沒活著。
+
+```bash
+curl -sG http://localhost:9090/api/v1/query \
+  --data-urlencode 'query=probe_success == 0' \
+  | jq -r '.data.result[] | "\(.metric.job)\t\(.metric.instance)"'
+```
+
 ## 影響
 黑箱探測是**從使用者角度**的量測。這條亮代表使用者現在打不到服務——
 優先於任何服務自報的健康指標。

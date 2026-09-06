@@ -100,6 +100,29 @@ scrape_configs:
       - target_label: __address__
         replacement: 127.0.0.1:9115
 
+  # ── 合成交易探測 ────────────────────────────────────────────────
+  #    上面的 blackbox-http 只打 /health。這一個真的送出付款請求，
+  #    走完 HTTP → 驗證 → repository → 回應的完整路徑。
+  #    失敗會由既有的 ServiceDown（probe_success == 0）接住，
+  #    不需要新增告警 —— 使用者的交易路徑掛了，就是服務掛了。
+  - job_name: blackbox-transaction
+    metrics_path: /probe
+    params:
+      module: [payment_create]
+    static_configs:
+      - targets:
+          - http://127.0.0.1:8091/api/v1/payments    # payment-api（主機 JVM）
+        labels:
+          service: payment-api
+          probe_kind: synthetic-transaction
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+
   - job_name: blackbox-status
     metrics_path: /probe
     params:

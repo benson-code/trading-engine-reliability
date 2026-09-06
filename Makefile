@@ -76,6 +76,7 @@ obs-status: ## 監控平台健康總覽（容器 + 採集目標 + 告警）
 	@echo ""
 	@echo "  ── 容器 ─────────────────────────────────────────"
 	@docker compose -f $(OBS_DIR)/docker-compose.yml ps --format '    {{.Name}}\t{{.Status}}' 2>/dev/null || true
+	@tools/check-obs-mounts.sh 2>/dev/null | grep -E "✅|❌|✗" | sed 's/^/  /' || true
 	@echo ""
 	@echo "  ── 採集目標 ─────────────────────────────────────"
 	@curl -s -m 5 http://127.0.0.1:9090/api/v1/targets 2>/dev/null | jq -r '.data.activeTargets | sort_by(.labels.job) | .[] | "    \(if .health == "up" then "✓" else "✗" end)  \(.labels.job)  \(.labels.instance)"' || echo "    Prometheus 無回應"
@@ -84,6 +85,10 @@ obs-status: ## 監控平台健康總覽（容器 + 採集目標 + 告警）
 	@echo "  ── 進行中的告警 ─────────────────────────────────"
 	@curl -s -m 5 http://127.0.0.1:9093/api/v2/alerts 2>/dev/null | jq -r 'if length == 0 then "    （無）" else (.[] | "    \(.labels.severity | ascii_upcase)  \(.labels.alertname)  \(.labels.service // "-")") end' || echo "    Alertmanager 無回應"
 	@echo ""
+
+.PHONY: obs-mounts
+obs-mounts: ## 檢查監控容器讀到的設定與磁碟一致（bind mount 未斷裂）
+	tools/check-obs-mounts.sh
 
 .PHONY: obs-reload
 obs-reload: ## 熱載入 Prometheus 設定與告警規則（不重啟容器）

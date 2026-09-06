@@ -23,6 +23,37 @@ modules:
       preferred_ip_protocol: ip4
       ip_protocol_fallback: false
 
+  # ── 合成交易 ──────────────────────────────────────────────────
+  # 真的送出一筆付款，而不是只問 /health「你還活著嗎」。
+  #
+  # 為什麼需要：/health 回 200 完全不保證 /api/v1/payments 沒有在噴 500。
+  # 這正是 PaymentApiErrorRateHigh 那條告警的前提 —— 沒有真實流量，
+  # 錯誤率就沒有分母。
+  #
+  # ⚠ idempotency_key 是固定值，這是刻意的。
+  #   探測每 15 秒跑一次；若每次都用新的 key，就會以每天約 5,760 筆的
+  #   速度無限累積付款紀錄 —— 那正是這個 repo 在追的那類缺陷
+  #   （只進不出的長生命週期集合），由監控系統自己製造出來。
+  #   固定 key 的結果是：行程啟動後第一次呼叫建立（202），
+  #   之後每一次都是冪等重放（200）。兩條路徑都值得持續驗證，
+  #   而狀態永遠有界。
+  payment_create:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: [HTTP/1.1, HTTP/2.0]
+      valid_status_codes: [200, 202]      # 202 = 首次建立，200 = 冪等重放
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: '{"order_id":"SYNTHETIC-PROBE","user_id":"USER_DEMO","amount":1.00,"currency":"USDT","idempotency_key":"synthetic-probe-fixed"}'
+      # 光看狀態碼不夠：回 200 但內容是錯的，一樣是故障
+      fail_if_body_not_matches_regexp:
+        - '"payment_id"\s*:\s*"PAY_'
+        - '"order_id"\s*:\s*"SYNTHETIC-PROBE"'
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+
   tcp_connect:
     prober: tcp
     timeout: 5s

@@ -4,6 +4,22 @@
 
 > **Alert**: `ServiceDown` (`probe_success == 0`, 1m) · critical
 
+## Two probes can trigger this
+
+| Probe | What it does | What its failure means |
+|---|---|---|
+| `blackbox-http` | `GET /health` | The process is not answering at all |
+| `blackbox-transaction` | `POST /api/v1/payments` with a real body | **The transaction path is broken, even if `/health` is fine** |
+
+Check which one failed first — a synthetic-transaction failure with a healthy
+`/health` means the process is up and the business path is not.
+
+```bash
+curl -sG http://localhost:9090/api/v1/query \
+  --data-urlencode 'query=probe_success == 0' \
+  | jq -r '.data.result[] | "\(.metric.job)\t\(.metric.instance)"'
+```
+
 ## Impact
 A black-box probe measures the service **from the user's point of view**. When
 this fires, users cannot reach the service right now — and that takes priority

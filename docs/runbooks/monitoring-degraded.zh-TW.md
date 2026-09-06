@@ -92,6 +92,39 @@ deploy/observability/jstat-exporter.sh; echo "exit=$?"
 
 ---
 
+## 磁碟上的設定,不一定是正在跑的設定
+
+2026-09-06 發現:`obs-blackbox` 從 09-03 起就在跑一份**磁碟上已經不存在**的設定。
+git 操作(`checkout`、`reset --hard`)重建了 `blackbox/` 目錄,
+bind mount 仍指著舊的 inode —— 於是容器內那個目錄是空的。
+
+而 exporter 完全沒事。它在啟動時就把設定讀進記憶體,之後照常提供探測。
+你改 `blackbox.yml` 不會有任何效果,也不會報錯。**三天,零徵兆。**
+
+這是設定漂移配上全綠儀表板 —— 跟這個 repo 裡其他東西同一個形狀,
+差別只在這次悄悄分家的是「設定」而不是「程式碼」。
+
+```bash
+# 每個監控容器都還看得到磁碟上的設定嗎？
+make obs-mounts
+
+# 它比對的是 sha256,不只是檔案存不存在 ——
+# 「掛載斷裂」和「檔案寫到一半」是兩種不同的故障。
+```
+
+掛載斷裂時要重建該容器。某些 runtime 上單純 restart 不夠,要強制重建:
+
+```bash
+docker compose -f deploy/observability/docker-compose.yml \
+  up -d --force-recreate <service>
+```
+
+> **重載不能取代檢查。** 這次是 `curl -X POST .../-/reload` 回 500 才暴露出來 ——
+> 但一個從來沒被觸發過的 reload,永遠不會告訴你任何事。
+> `make obs-mounts` 存在的理由就是這個。
+
+---
+
 ## 立即確認（前 3 分鐘）
 
 ```bash
