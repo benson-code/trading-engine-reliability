@@ -2,7 +2,7 @@
 
 **[English](monitoring-degraded.md)** | 繁體中文
 
-> **對應告警**：`DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing`
+> **對應告警**：`DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `TextfileCollectorStale` · `TextfileCollectorError` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing`
 > **嚴重度**：critical / warning（心跳為 none）
 > **來源**：把事故 #1 與 #2 的教訓，套用在監控堆疊自己身上
 
@@ -29,6 +29,8 @@
 | `ScrapeDurationHigh` | `scrape_duration_seconds > 5` | 10m | warning |
 | `PrometheusRuleEvaluationFailing` | `increase(prometheus_rule_evaluation_failures_total[10m]) > 0` | 5m | critical |
 | `PrometheusTsdbCompactionFailing` | `increase(prometheus_tsdb_compactions_failed_total[1h]) > 0` | 15m | warning |
+| `TextfileCollectorStale` | `time() - node_textfile_mtime_seconds > 180` | 2m | critical |
+| `TextfileCollectorError` | `node_textfile_scrape_error > 0` | 5m | warning |
 | `AlertmanagerNotificationFailing` | `increase(alertmanager_notifications_failed_total[10m]) > 0` | 5m | critical |
 
 `ScrapeTargetDown` 排除 `job="node"`，因為主機本身由
@@ -53,6 +55,40 @@ heartbeat 服務（Dead Man's Snitch、Healthchecks.io 之類），由對方在
 **這個模式最典型的踩雷方式**，是某條抑制規則不小心把心跳吃掉了。
 `alertmanager.yml` 裡每一條可能命中它的 `target_matchers` 都明確加了
 `alertname != "DeadMansSwitch"`。你之後新增抑制規則時，請先拿心跳對一次。
+
+---
+
+## ⚠️ 凍結的指標比消失的指標更危險
+
+`jvm.prom` 與 `engine.prom` 由 cron 每 30 秒寫入，node_exporter 再讀出來。
+cron 一旦掛掉或腳本開始失敗，檔案就停止更新 ——
+**但 node_exporter 會永遠繼續提供它最後讀到的那組值。**
+
+指標不會消失，它會**凍結**。而凍結的指標看起來是健康的：
+
+| 凍結的指標 | 後果 |
+|---|---|
+| `jvm_jstat_attach_success` 卡在 `1` | **`JstatAttachFailed` 永遠不可能觸發** —— 而那條告警存在的唯一理由，就是 attach 失敗是事故 #1 的關鍵診斷訊號 |
+| `jvm_oldgen_utilization_ratio` 卡在健康值 | JVM 可以一路走進死亡螺旋，儀表板全綠 |
+| `engine_orders_generated_total` 卡住 | `EngineNotProgressing` 會叫，然後怪罪引擎 —— 但死的其實是採集器 |
+
+`TextfileCollectorStale` 是唯一能區分「服務沒事」與「看著服務的那隻眼睛閉上了」的東西。
+這個盲點有對應的可執行測試，見
+[`alerts_test.yml`](../../deploy/observability/prometheus/alerts_test.yml) ——
+它斷言採集器死亡期間 `JstatAttachFailed` 全程沉默，而 `TextfileCollectorStale` 抓得到。
+
+```bash
+# cron 還在跑嗎？
+crontab -l | grep jstat
+
+# 每個檔案幾秒沒更新了？
+curl -sG http://localhost:9090/api/v1/query --data-urlencode \
+  'query=time() - node_textfile_mtime_seconds' \
+  | jq -r '.data.result[] | "\(.metric.file)\t\(.value[1])s"'
+
+# 手動跑一次看它說什麼
+deploy/observability/jstat-exporter.sh; echo "exit=$?"
+```
 
 ---
 

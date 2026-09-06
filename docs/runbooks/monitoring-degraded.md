@@ -2,7 +2,7 @@
 
 **English** | [繁體中文](monitoring-degraded.zh-TW.md)
 
-> **Alerts**: `DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing`
+> **Alerts**: `DeadMansSwitch` · `ScrapeTargetDown` · `ScrapeDurationHigh` · `TextfileCollectorStale` · `TextfileCollectorError` · `PrometheusRuleEvaluationFailing` · `PrometheusTsdbCompactionFailing` · `AlertmanagerNotificationFailing`
 > **Severity**: critical / warning (and `none` for the heartbeat)
 > **Origin**: the lesson of incidents #1 and #2, applied to the monitoring stack itself
 
@@ -31,6 +31,8 @@ turns red, because no data is arriving to turn it red.
 | `ScrapeDurationHigh` | `scrape_duration_seconds > 5` | 10m | warning |
 | `PrometheusRuleEvaluationFailing` | `increase(prometheus_rule_evaluation_failures_total[10m]) > 0` | 5m | critical |
 | `PrometheusTsdbCompactionFailing` | `increase(prometheus_tsdb_compactions_failed_total[1h]) > 0` | 15m | warning |
+| `TextfileCollectorStale` | `time() - node_textfile_mtime_seconds > 180` | 2m | critical |
+| `TextfileCollectorError` | `node_textfile_scrape_error > 0` | 5m | warning |
 | `AlertmanagerNotificationFailing` | `increase(alertmanager_notifications_failed_total[10m]) > 0` | 5m | critical |
 
 `job="node"` is excluded from `ScrapeTargetDown` because
@@ -59,6 +61,42 @@ accidentally swallows the heartbeat. Every `target_matchers` in
 `alertmanager.yml` that could match it explicitly excludes
 `alertname != "DeadMansSwitch"`. If you add an inhibition rule, check it against
 the heartbeat first.
+
+---
+
+## ⚠️ A frozen metric is worse than a missing one
+
+`jvm.prom` and `engine.prom` are written by cron every 30s and read by
+node_exporter. If cron dies or the script starts failing, the files stop being
+updated — **but node_exporter keeps serving the last values it read, forever.**
+
+The metrics do not disappear. They freeze. And a frozen metric reads as healthy:
+
+| Frozen metric | Consequence |
+|---|---|
+| `jvm_jstat_attach_success` stuck at `1` | **`JstatAttachFailed` can never fire** — the alert that exists precisely because attach failure was the key diagnostic in incident #1 |
+| `jvm_oldgen_utilization_ratio` stuck at a healthy value | The JVM can walk into a death spiral with a green dashboard |
+| `engine_orders_generated_total` stuck | `EngineNotProgressing` fires and blames the engine, when the collector is what died |
+
+`TextfileCollectorStale` is the only thing that separates "the service is fine"
+from "the eye watching the service closed". There is an executable test for this
+exact blind spot in
+[`alerts_test.yml`](../../deploy/observability/prometheus/alerts_test.yml) —
+it asserts that `JstatAttachFailed` stays silent while the collector is dead,
+and that `TextfileCollectorStale` catches it.
+
+```bash
+# Is cron still running the collector?
+crontab -l | grep jstat
+
+# How old is each file, in seconds?
+curl -sG http://localhost:9090/api/v1/query --data-urlencode \
+  'query=time() - node_textfile_mtime_seconds' \
+  | jq -r '.data.result[] | "\(.metric.file)\t\(.value[1])s"'
+
+# Run it by hand and see what it says
+deploy/observability/jstat-exporter.sh; echo "exit=$?"
+```
 
 ---
 

@@ -367,6 +367,51 @@ groups:
           先確認磁碟空間（見 disk-capacity runbook）與 /prometheus 的權限。
         runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
 
+
+    # ── 採集器新鮮度 ─────────────────────────────────────────────
+    # 這兩條補的是整套堆疊裡最陰險的一個盲點。
+    #
+    # jvm.prom / engine.prom 由 cron 每 30 秒寫入，node_exporter 再讀出來。
+    # 如果 cron 掛了或腳本開始失敗，檔案就停止更新 ——
+    # **但 node_exporter 會永遠繼續吐最後一次寫入的值。**
+    #
+    # 後果不是「指標消失」，而是「指標凍結在最後一個值」，例如：
+    #
+    #   jvm_jstat_attach_success      凍結在 1（成功）
+    #     → JstatAttachFailed 這條告警永遠不可能觸發，
+    #       而它存在的唯一理由，就是事故 #1 當時 attach 失敗是關鍵診斷訊號。
+    #
+    #   jvm_oldgen_utilization_ratio  凍結在健康值
+    #     → JVM 正在走向死亡螺旋，儀表板卻一片正常。
+    #
+    # 這就是本專案兩次事故的形狀，再深一層：不是服務安靜，
+    # 是「觀測服務的那隻眼睛」安靜了，而畫面停在最後一幀。
+    - alert: TextfileCollectorStale
+      expr: time() - node_textfile_mtime_seconds > 180
+      for: 2m
+      labels: { severity: critical, category: meta, service: textfile-collector }
+      annotations:
+        summary: "{{ $labels.file }} 已 {{ $value | humanizeDuration }} 沒有更新"
+        description: >-
+          textfile 採集器停止寫入，但 node_exporter 仍在提供**上一次寫入的舊值**。
+          依賴這個檔案的所有指標都已凍結，看起來正常但其實不再反映現實。
+          寫入週期為 30 秒（兩條 cron，其中一條 offset 30s），
+          門檻 180 秒代表連續漏了約 6 次。
+          先確認 cron 還在跑：crontab -l | grep jstat
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
+    - alert: TextfileCollectorError
+      expr: node_textfile_scrape_error > 0
+      for: 5m
+      labels: { severity: warning, category: meta, service: textfile-collector }
+      annotations:
+        summary: "node_exporter 無法解析 textfile 目錄"
+        description: >-
+          node_exporter 讀 textfile 時發生錯誤，通常是某個 .prom 檔格式壞掉
+          （寫到一半、權限、或指標名稱不合法）。此時該檔案的指標會整批消失，
+          而不是凍結 —— 兩種失效模式都要分開偵測。
+        runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
     # ── 通知面 ───────────────────────────────────────────────────
     # 告警算對了、也路由了，但送不出去 —— 對值班的人來說等同於沒有告警。
     - alert: AlertmanagerNotificationFailing

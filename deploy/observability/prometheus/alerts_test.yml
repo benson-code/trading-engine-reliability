@@ -1,0 +1,201 @@
+# ══════════════════════════════════════════════════════════════════
+#  告警規則的單元測試（promtool test rules）
+#
+#  每一條告警都宣稱自己偵測得到某件事。這份檔案是那個宣稱的證據。
+#
+#  在這之前，這套堆疊裡沒有任何一條告警被證明過真的會在它宣稱的
+#  條件下觸發 —— `promtool check rules` 只驗語法，不驗行為。
+#  一條寫錯門檻或用錯指標的告警，語法檢查會完全通過，然後在真正
+#  出事的那天安靜地什麼都不做。
+#
+#  執行：make obs-test    （或 promtool test rules alerts_test.yml）
+#
+#  注意：promtool 會連 annotations 一起比對，所以改動告警文案會讓這裡失敗。
+#  這個耦合是刻意留著的 —— summary 是值班的人半夜真正會讀到的那一行，
+#  而它含有模板算出來的值（例如「Full GC 佔用 43.84%」、「已 15m 0s 沒有更新」）。
+#  模板壞掉或單位寫錯 100 倍，只有比對算繪後的字串才抓得到。
+# ══════════════════════════════════════════════════════════════════
+
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+
+  # ────────────────────────────────────────────────────────────────
+  # 1. 採集器凍結 —— 本檔最重要的一個測試
+  #
+  #    它同時證明兩件事：
+  #      (a) 盲點是真的：採集器停擺時 jvm_jstat_attach_success 凍結在 1，
+  #          JstatAttachFailed 因此永遠不可能觸發
+  #      (b) 新告警接得住：TextfileCollectorStale 會叫
+  #
+  #    mtime 固定在 0 代表「檔案最後一次被寫入是在 t=0」，
+  #    之後 cron 就再也沒跑過。time() 隨評估時間前進，差值持續擴大。
+  # ────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "採集器停擺時，凍結的指標讓既有告警失效"
+    input_series:
+      # 檔案在 t=0 之後就沒再更新
+      - series: 'node_textfile_mtime_seconds{file="/textfile/jvm.prom",instance="orion-dev",job="node"}'
+        values: '0x20'
+      # 採集器死掉那一刻的最後一個值：attach 是成功的。它從此凍結。
+      - series: 'jvm_jstat_attach_success{instance="orion-dev",job="node"}'
+        values: '1x20'
+
+    alert_rule_test:
+      # (a) 盲點：即使採集器已經死了 15 分鐘，這條依然不會叫
+      - eval_time: 15m
+        alertname: JstatAttachFailed
+        exp_alerts: []
+
+      # (b) 但新告警抓得到
+      - eval_time: 15m
+        alertname: TextfileCollectorStale
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              category: meta
+              service: textfile-collector
+              file: /textfile/jvm.prom
+              instance: orion-dev
+              job: node
+            exp_annotations:
+              summary: "/textfile/jvm.prom 已 15m 0s 沒有更新"
+              description: "textfile 採集器停止寫入，但 node_exporter 仍在提供**上一次寫入的舊值**。 依賴這個檔案的所有指標都已凍結，看起來正常但其實不再反映現實。 寫入週期為 30 秒（兩條 cron，其中一條 offset 30s）， 門檻 180 秒代表連續漏了約 6 次。 先確認 cron 還在跑：crontab -l | grep jstat"
+              runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"
+
+  # ────────────────────────────────────────────────────────────────
+  # 2. 採集器正常時不可誤報
+  #
+  #    mtime 每分鐘前進 60 秒，跟 time() 同步 —— 這是健康的樣子。
+  #    負面案例跟正面案例一樣重要：一條會誤報的告警，
+  #    最後會被值班的人設成靜音，等於沒有。
+  # ────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "採集器正常寫入時不觸發"
+    input_series:
+      - series: 'node_textfile_mtime_seconds{file="/textfile/jvm.prom",instance="orion-dev",job="node"}'
+        values: '0+60x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: TextfileCollectorStale
+        exp_alerts: []
+
+  # ────────────────────────────────────────────────────────────────
+  # 3. 事故 #2 的簽名：服務可達，但工作沒有前進
+  #
+  #    engine_up 全程為 1（API 有回應），
+  #    但累計訂單數完全不動 —— 這正是 2026-07 靜默六天的形狀，
+  #    也是 2026-09-03 又重演一次的形狀。
+  # ────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "事故 #2：可達但工作停滯"
+    input_series:
+      - series: 'engine_up{instance="orion-dev",job="node"}'
+        values: '1x30'
+      # 計數器完全不增加
+      - series: 'engine_orders_generated_total{instance="orion-dev",job="node"}'
+        values: '5032116x30'
+    alert_rule_test:
+      # for: 10m + rate 需要 10m 視窗，所以 25 分鐘後必然成立
+      - eval_time: 25m
+        alertname: EngineNotProgressing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              category: work-progress
+              service: trading-engine
+              instance: orion-dev
+              job: node
+            exp_annotations:
+              summary: "trading-engine 可達但訂單產生器沒有前進"
+              description: "REST API 有回應（engine_up=1），但 10 分鐘內累計訂單數完全沒有增加。 2026-07 的第二次事故就是這個形狀：unattended-upgrades 重啟 MySQL 連帶 SIGTERM 掉服務，systemd 成功重啟了進程，但 worker thread 被 in-memory AtomicBoolean 擋住沒有恢復，靜默六天無人察覺。 所有 liveness check 在那六天內全部通過。"
+              runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/engine-not-progressing.md"
+
+  # ────────────────────────────────────────────────────────────────
+  # 4. 事故 #2 的反面：工作正常前進時不可誤報
+  #
+  #    每分鐘 +1,200 筆（約 20 筆/秒，程式宣告的產速）。
+  # ────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "訂單正常產生時不觸發"
+    input_series:
+      - series: 'engine_up{instance="orion-dev",job="node"}'
+        values: '1x30'
+      - series: 'engine_orders_generated_total{instance="orion-dev",job="node"}'
+        values: '5032116+1200x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: EngineNotProgressing
+        exp_alerts: []
+
+  # ────────────────────────────────────────────────────────────────
+  # 5. 事故 #1 的簽名：GC 佔比用事故實測值
+  #
+  #    491,218s STW / 1,120,514s uptime = 43.8%
+  #    （取證當下的真實數字，見 docs/incident-2026-07-14-gc-death-spiral/）
+  #    門檻 10%，所以 43.8% 必然觸發。
+  # ────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "事故 #1：GC 佔比達實測的 43.8%"
+    input_series:
+      - series: 'jvm_gc_full_seconds_total{instance="orion-dev",job="node"}'
+        values: '491218x20'
+      - series: 'jvm_uptime_seconds{instance="orion-dev",job="node"}'
+        values: '1120514x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: JvmGcTimeRatioHigh
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              category: saturation
+              service: trading-engine
+              instance: orion-dev
+              job: node
+            exp_annotations:
+              summary: "Full GC 佔用 43.84% 的行程存活時間"
+              description: "事故基準值：491,218s STW / 1,120,514s uptime = 43.8%（另以 /proc CPU 統計交叉驗算得 43.4%）。超過 10% 即應介入。"
+              runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/gc-death-spiral.md"
+
+  # ────────────────────────────────────────────────────────────────
+  # 6. GC 佔比在門檻以下時不觸發
+  #
+  #    9% —— 剛好低於 10% 門檻。邊界值要測，否則不知道門檻
+  #    到底是 > 還是 >=，也不知道有沒有寫成 100 倍。
+  # ────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "GC 佔比 9% 時不觸發（邊界）"
+    input_series:
+      - series: 'jvm_gc_full_seconds_total{instance="orion-dev",job="node"}'
+        values: '90x20'
+      - series: 'jvm_uptime_seconds{instance="orion-dev",job="node"}'
+        values: '1000x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: JvmGcTimeRatioHigh
+        exp_alerts: []
+
+  # ────────────────────────────────────────────────────────────────
+  # 7. 死人開關必須永遠在響
+  #
+  #    它是唯一一條「不響才是異常」的告警。如果哪天有人不小心
+  #    把它改壞了或被抑制規則吃掉，這個測試會擋下來。
+  # ────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "死人開關永遠 firing"
+    input_series: []
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: DeadMansSwitch
+        exp_alerts:
+          - exp_labels:
+              severity: none
+              category: meta
+              service: monitoring
+            exp_annotations:
+              summary: "心跳 —— 收到代表告警鏈路正常"
+              description: "這條告警刻意永遠處於 firing 狀態，用來證明 Prometheus 規則評估 → Alertmanager 路由 → 通知管道 這整條鏈路是通的。**它停止抵達，才是需要處理的事件。** 外部 heartbeat 服務的逾時應設為遠大於 5 分鐘（建議 15 分鐘）。"
+              runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/monitoring-degraded.md"

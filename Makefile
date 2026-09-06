@@ -105,6 +105,11 @@ obs-validate: ## 驗證 Prometheus / Alertmanager 設定與告警規則語法
 obs-alerts: ## 顯示已送達的告警通知
 	@tail -40 $(OBS_DIR)/alertmanager/delivered.log 2>/dev/null || echo "  尚無送達紀錄"
 
+.PHONY: obs-test
+obs-test: ## 告警規則的單元測試（餵假資料，斷言哪條該響）
+	@docker run --rm -v $(PWD)/$(OBS_DIR)/prometheus:/etc/prometheus:ro -w /etc/prometheus \
+		--entrypoint promtool prom/prometheus:v3.1.0 test rules alerts_test.yml
+
 .PHONY: runbooks
 runbooks: ## 檢查每條告警都有對應的處理 SOP
 	tools/check-alert-runbooks.sh

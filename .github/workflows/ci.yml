@@ -60,6 +60,14 @@ jobs:
             --entrypoint promtool prom/prometheus:v3.1.0 \
             check rules /etc/prometheus/alerts.yml /etc/prometheus/slo.yml
 
+      # 語法正確不代表行為正確。這一步餵假的時間序列進去，
+      # 斷言每條告警真的會在它宣稱的條件下觸發、且在正常情況下不誤報。
+      - name: Alert rule unit tests
+        run: |
+          docker run --rm -v "$PWD/deploy/observability/prometheus:/etc/prometheus:ro" \
+            -w /etc/prometheus --entrypoint promtool prom/prometheus:v3.1.0 \
+            test rules alerts_test.yml
+
       - name: Validate Alertmanager routing config
         run: |
           docker run --rm -v "$PWD/deploy/observability/alertmanager:/cfg:ro" \
