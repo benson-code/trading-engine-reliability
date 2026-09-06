@@ -8,13 +8,13 @@
 ## 架構
 
 ```
-Layer 4  Grafana ──── SRE 總覽 · 容量規劃 · JVM 事故重現
+Layer 4  Grafana ──── SRE 總覽 · SLO 與錯誤預算 · payment-api RED · 容量規劃 · JVM
                             ↑
-Layer 3  Alertmanager ─── 分級路由 · 4 條抑制規則 · → Runbook SOP
+Layer 3  Alertmanager ─── 分級路由 · 4 條抑制規則 · → alert-notifier（LINE / 心跳）· → Runbook SOP
                             ↑
-Layer 2  Prometheus ───── 24 條規則 / 6 組 · 30 天保留
+Layer 2  Prometheus ───── 42 條規則 / 9 組 · 30 天保留
                             ↑
-Layer 1  採集 ─── node_exporter(+textfile) · blackbox · mysqld · redis
+Layer 1  採集 ─── node_exporter（+jstat textfile）· blackbox（+合成交易）· mysqld · redis · 各服務 /metrics
                             ↑
 Layer 0  被監控 ── payment-api · trading-engine · MySQL · Redis · 主機
 ```

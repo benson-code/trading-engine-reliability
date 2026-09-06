@@ -2,29 +2,29 @@
 
 [English](README.md) | **繁體中文**
 
-在一台自架的 ARM64 主機上，把可靠度工程（reliability engineering）從頭做到尾：一支 Java 支付 API 和一個 BTC 交易引擎模擬器，容器化之後用**手寫的 Helm chart 部署到 k3s**，外面包一層 **Prometheus / Alertmanager / Grafana**，而它的所有閾值都是從**同一套基礎設施上真實發生過的兩次事故**反推出來的 —— 再加上一組 CI 閘門，擋住那些根因被重新引入。
+本專案在一台自架的 ARM64 主機上，完整實作可靠度工程（reliability engineering）的各個環節：一支 Java 支付 API 與一個 BTC 交易引擎模擬器，經容器化後以**手寫的 Helm chart 部署至 k3s**，並由 **Prometheus / Alertmanager / Grafana** 監控——所有告警閾值均由**同一套基礎設施上實際發生過的兩次事故**反推而得，再輔以一組 CI 閘門，防止相同的根因再次被引入。
 
 ![CI](https://github.com/benson-code/trading-engine-reliability/actions/workflows/ci.yml/badge.svg)
 
-### 為什麼有這個專案
+### 專案緣起
 
-做 QA 這 10 年，我跑過支付閘道、電商平台，還有一間 Tier-1 銀行的卡片支付整合。真正會出大事的，從來都不是 happy path（正常流程），而是那種**悶不吭聲的後端失敗（silent backend failures）**：扣款明明已經 commit 了，對應的 payment 資料卻沒寫進去；高負載下重試一下就重複扣款；兩個服務之間的結算狀態對不起來。要抓到這些，常常得事後撈 Oracle SQL、JDBC，再配上 Linux log 一行一行追。
+作者從事支付與金融領域 QA 十年，經歷支付閘道、電商平台，以及 Tier-1 銀行的卡片支付整合。經驗顯示，真正造成重大損失的從來不是正常流程（happy path），而是**靜默的後端失敗（silent backend failures）**：扣款已提交（commit），對應的付款紀錄卻未寫入；高負載下的重試造成重複扣款；兩個服務之間的結算狀態不一致。要找出這類問題，往往必須在事後透過 Oracle SQL、JDBC 與 Linux 日誌逐行追查。
 
-這個 repo 就是把那份用代價換來的直覺，變成**資料庫層跑得出來的證明**：那些我在正式環境追過的 ACID rollback、exactly-once（剛好一次）idempotency、race condition（競態條件）情境，這裡通通重現成自動化測試 —— 只要不變量（invariant）一被破壞，測試就會大聲喊出來，讓 bug 在 CI 階段就被擋下，而不是拖到對帳報表才爆出來。
+本專案將這些實務經驗轉化為**可於資料庫層執行的證明**：在正式環境中追查過的 ACID 回滾、exactly-once idempotency、競態條件（race condition）等情境，均重現為自動化測試——一旦不變量（invariant）被破壞，測試即明確失敗，使缺陷在 CI 階段被攔截，而非等到對帳報表才浮現。
 
-### 重點亮點
+### 主要特色
 
-- **Kubernetes 部署是「演練過」的，不是宣告出來的** —— 支付 API 跑在自架的單節點 **k3s v1.36** 叢集上，兩個副本，由一份手寫的 **Helm chart** 部署：probe 與資源配額全部 values 驅動，並用 ConfigMap checksum annotation 確保設定一改就真的觸發 rollout，而不是靜靜地沒生效。`maxUnavailable: 0` 是宣告，不是保證 —— 在持續流量下做滾動更新演練，實測 **580 筆請求中有 2 筆非 200（0.34%）**，根因是 `SIGTERM` 與 endpoint 移除傳播到各節點 iptables 這兩件事在賽跑。補上 `preStop` 延遲搭配對應的 `terminationGracePeriodSeconds` 之後重測：**680 筆請求，0 失敗**（[`tools/k8s-rollout-drill.sh`](tools/k8s-rollout-drill.sh)）。
-- **真服務、真資料庫、真 ACID** —— `JdbcPaymentRepository.createPayment` 把餘額扣款跟 payment 寫入放在**同一個交易（transaction）**裡；`UNIQUE(idempotency_key)` 則是併發時的最後一道防線。萬一某個重試在競爭中輸了，它會 rollback —— **連自己剛剛的扣款也一起撤掉** —— 所以不管收到幾次重試，帳戶就是剛好扣一次（[`JdbcPaymentRepositoryTest`](payment-api/src/test/java/com/binance/payment/db/JdbcPaymentRepositoryTest.java)）。
-- **併發是「測出來」的，不是嘴上講講** —— 16 條執行緒拿同一個 idempotency key 去打 `createPayment`；測試（[`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)）在**兩種** repository 實作上都驗證了：就是扣一次、就是只有一個 `payment_id`。
-- **不搞 WireMock 那套假把戲** —— 每一個 API 跟整合測試都是透過內嵌 HTTP server 去打**真正的** `PaymentService`，而不是 mock 出來的替身，所以測試全綠就代表服務本身真的跑得動（[commit `668bfc4`](https://github.com/benson-code/trading-engine-reliability/commit/668bfc4) 就是從 mock 遷移到真實服務的過程）。
-- **支付等級的輸入跟權限把關** —— 幣別一定要跟帳戶一致（`422`）；金額精度卡在 `DECIMAL(18,8)`（`400 INVALID_PRECISION`，不會偷偷截斷）；支付端點只要有設定，就一定要帶 `X-API-Key`（用常數時間比較，constant-time）（[`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)）。
-- **把弄垮後端的那類缺陷，也拿去測前端** —— `useTradingEngine` 有兩個只進不出的集合，其中一個每收到一則訊息就把自己整份複製一次。Pixel 7 的耐久測試灌 4 萬筆訂單（大約 33 分鐘的 session），然後驗證 retained heap 沒有跟著長大：**約 2,070 KB → 401 KB**，每批耗時的首末比也從 2.27x 拉平到 0.98x（[`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)）。
-- **服務開始回報自己,監控系統也開始監控自己** —— `payment-api` 在 `/metrics` 暴露 RED 指標(手寫,無 client library):請求率、錯誤率,以及一個 `le="0.25"` 邊界正好落在 SLO 門檻上的延遲直方圖。在此之前所有訊號都來自對 `/health` 的黑箱探測 —— 而它會一邊回報 100% 成功,一邊讓 `/payments` 對每個呼叫者噴 500。另外加了一條**死人開關**告警,永遠處於 firing 並路由到心跳接收端:**收不到它才是事件** —— 這是唯一能區分「一切正常」與「告警管線已死」的方法,也就是把兩次事故的形狀套用在監控系統自己身上。
-- **SLO 與錯誤預算,而且其中一個已經超支** —— 三個 SLI,每一個都對應這台機器上真的發生過的失效模式:可用性、延遲(250ms)、以及**工作進度**。3 天實測:可用性 **100.0000%**、延遲 **100.0000%**、工作進度 **97.3611%**(目標 99%)—— **超支 163.9%**。2026-09-03 引擎有 115 分鐘完全沒有產出,而同期間 `probe_success` 全程為 1、延遲維持約 1ms、行程從未重啟:**前兩個 SLI 全程回報一個完美的服務**。上面架了 6 條多視窗多燒錄率告警(14.4x 立刻叫人、6x 開單)([`docs/slo.md`](docs/slo.zh-TW.md))。
-- **可觀測性長在真實事故上** —— 42 條 Prometheus 告警規則，閾值全部由兩次實測事故反推 · 15 份 runbook，覆蓋率由 CI 強制 · Alertmanager 分級路由加 4 條抑制規則 · 一個指令完成事故現場保全。
-- **兩層互相獨立的測試打在真的跑起來的服務上** —— 除了 CI 裡的 Java 測試，還有一套 Python（`pytest`）的 contract / 驗證 / idempotency / 併發測試，以及 `k6` 壓測腳本。兩者都會自己起一個用完即丟的實例、綁 OS 指派的埠號，並以 `nice -n 15` 執行，所以一次執行絕不會撞到、也絕不會寫進這台機器上長期運行的服務（[`python-qa/`](python-qa/README.md)）。
-- **品質靠 CI 強制把關** —— CI 一次跑 104 個 Java 測試，外加一套 mobile-web 耐久測試 · 一道宣告式的 `BOUNDED-BY` 閘，任何長生命週期集合只要沒有淘汰機制、又沒寫明為什麼不會無限成長，就直接擋下來 · `main` 上了連 admin 都擋不掉的分支保護 · 只能走 PR · 五個必過的檢查一定要全綠（機密掃描排第一）· 用 rebase-merge 保留 P1/P2/P3 的 commit 故事線。
+- **Kubernetes 部署經過實測演練，而非僅止於宣告** —— 支付 API 以兩個副本執行於自架的單節點 **k3s v1.36** 叢集，由手寫的 **Helm chart** 部署：probe 與資源配額均由 values 驅動，並以 ConfigMap checksum annotation 確保設定變更確實觸發 rollout，而非靜默地未生效。`maxUnavailable: 0` 是宣告而非保證——在持續流量下進行滾動更新演練，實測 **580 筆請求中有 2 筆非 200（0.34%）**，根因為 `SIGTERM` 與 endpoint 移除傳播至各節點 iptables 之間的競態。加入 `preStop` 延遲並搭配對應的 `terminationGracePeriodSeconds` 後重測：**680 筆請求，0 筆失敗**（[`tools/k8s-rollout-drill.sh`](tools/k8s-rollout-drill.sh)）。
+- **真實服務、真實資料庫、真實 ACID** —— `JdbcPaymentRepository.createPayment` 將餘額扣款與付款寫入置於**同一個交易（transaction）**中；`UNIQUE(idempotency_key)` 為併發情境下的最後防線。競爭失敗的重試會被回滾——**連同其扣款一併撤銷**——因此無論收到多少次重試，帳戶僅扣款一次（[`JdbcPaymentRepositoryTest`](payment-api/src/test/java/com/binance/payment/db/JdbcPaymentRepositoryTest.java)）。
+- **併發安全性經實測驗證，而非僅為斷言** —— 16 個執行緒以相同的 idempotency key 同時呼叫 `createPayment`；測試（[`ConcurrentIdempotencyTest`](payment-api/src/test/java/com/binance/payment/concurrency/ConcurrentIdempotencyTest.java)）於**兩種** repository 實作上均驗證：僅扣款一次、僅產生一個 `payment_id`。
+- **不以 WireMock 模擬取代真實服務** —— 所有 API 與整合測試均透過內嵌 HTTP server 呼叫**真實的** `PaymentService`，而非 mock 替身；測試通過即代表服務本身確實可運作（[commit `668bfc4`](https://github.com/benson-code/trading-engine-reliability/commit/668bfc4) 記錄了由 mock 遷移至真實服務的過程）。
+- **支付等級的輸入驗證與存取控制** —— 幣別須與帳戶一致（`422`）；金額精度限制於 `DECIMAL(18,8)`（`400 INVALID_PRECISION`，不進行靜默截斷）；付款端點在設定後強制要求 `X-API-Key`（以常數時間比較）（[`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)）。
+- **將導致後端故障的缺陷類型同樣納入前端測試** —— `useTradingEngine` 曾持有兩個只增不減的集合，其中一個在每次收到訊息時完整複製自身。Pixel 7 耐久測試注入 4 萬筆訂單（約 33 分鐘的 session），驗證 retained heap 未隨之成長：**約 2,070 KB → 401 KB**，各批次耗時的首末比亦由 2.27x 收斂至 0.98x（[`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)）。
+- **服務自我回報，監控系統亦自我監控** —— `payment-api` 與 `trading-engine` 均於 `/metrics` 提供服務自報指標（手寫實作，無 client library）：請求速率、錯誤率，以及 `le="0.25"` 邊界恰與 SLO 門檻對齊的延遲直方圖。在此之前，所有訊號均來自對 `/health` 的黑箱探測——該探測可回報 100% 成功，而 `/payments` 卻對每位呼叫者回應 500。另設**死人開關（dead man's switch）**告警，永久處於 firing 並路由至心跳接收端：**未收到才代表事件發生**——這是唯一能區分「一切正常」與「告警管線已失效」的方法，亦即將兩次事故的形態套用於監控系統本身。告警經 Alertmanager 送達 **LINE**，最後一哩的投遞結果同樣以指標暴露並受告警監控。
+- **SLO 與錯誤預算，且其中一項已超支** —— 三個 SLI 分別對應本主機上實際發生過的失效模式：可用性、延遲（250ms）與**工作進度**。三日實測：可用性 **100.0000%**、延遲 **100.0000%**、工作進度 **97.3611%**（目標 99%）——**超支 163.9%**。2026-09-03 引擎有 115 分鐘完全無產出，而同期 `probe_success` 全程為 1、延遲維持約 1ms、行程未曾重啟：**前兩項 SLI 全程回報完美**。其上另有 6 條多視窗多燒錄率告警（14.4x 即時通知、6x 開立工單）（[`docs/slo.zh-TW.md`](docs/slo.zh-TW.md)）。
+- **可觀測性建構於真實事故之上** —— 42 條 Prometheus 告警規則，閾值均由兩次實測事故反推 · 15 份 runbook，覆蓋率由 CI 強制 · Alertmanager 分級路由與 4 條抑制規則 · 單一指令完成事故現場保全。
+- **兩層彼此獨立的測試，均針對實際執行中的服務** —— 除 CI 中的 Java 測試外，另有一套 Python（`pytest`）契約／驗證／idempotency／併發測試，以及 `k6` 負載腳本。兩者皆自行啟動用後即棄的實例、綁定作業系統指派的埠號，並以 `nice -n 15` 執行，因此不會干擾、亦不會寫入本主機上長期運行的服務（[`python-qa/`](python-qa/README.md)）。
+- **品質由 CI 強制執行** —— CI 執行 113 個 Java 測試與一套 mobile-web 耐久測試 · 宣告式的 `BOUNDED-BY` 閘門，對任何缺乏淘汰機制且未說明為何不會無限成長的長生命週期集合直接阻擋 · `main` 分支保護對管理員同樣生效 · 僅接受 PR · 五項必要檢查須全數通過（機密掃描優先）· 以 rebase-merge 保留 P1/P2/P3 的 commit 脈絡。
 
 ---
 
@@ -38,9 +38,9 @@
 | 專案總覽 | [`README.md`](README.md) | [`README.zh-TW.md`](README.zh-TW.md) |
 | SLO 與錯誤預算 | [`docs/slo.md`](docs/slo.md) | [`docs/slo.zh-TW.md`](docs/slo.zh-TW.md) |
 | Runbook 索引 | [`docs/runbooks/README.md`](docs/runbooks/README.md) | [`docs/runbooks/README.zh-TW.md`](docs/runbooks/README.zh-TW.md) |
-| 13 份告警 runbook | `docs/runbooks/*.md` | `docs/runbooks/*.zh-TW.md` |
+| 15 份告警 runbook | `docs/runbooks/*.md` | `docs/runbooks/*.zh-TW.md` |
 
-**尚未翻譯的部分，這裡誠實標示**：完整事故 RCA
+**以下部分尚未翻譯**：完整事故 RCA
 （[`RCA-zh-TW.md`](docs/incident-2026-07-14-gc-death-spiral/RCA-zh-TW.md)，約 1,000 行）
 與資源安全檢查表目前只有中文版。但英文讀者不會卡住 ——
 事故當下寫的鑑識報告本來就是英文：
@@ -68,7 +68,7 @@ trading-engine-reliability/        ← Monorepo 根目錄（Maven parent POM）
 └── tools/                         ← CI 品質閘門 + 事故現場保全
 ```
 
-**一行指令跑完全部 104 個 Java 測試：**
+**單一指令執行全部 113 個 Java 測試：**
 ```bash
 mvn test   # 依序執行 payment-api + trading-engine-simulator
 ```
@@ -91,13 +91,14 @@ mvn test -pl trading-engine-simulator -Dgroups=db-validation
 | 單元測試 | 驗證邏輯、idempotency 服務邏輯 | JUnit 5, Mockito |
 | API 測試 | happy path、負向案例、非同步 202 流程 | RestAssured vs 真實 `PaymentApiServer` |
 | DB 測試 | 真實 JDBC repo：ACID rollback、嚴格帳戶、idempotency 約束 | JDBC, H2（MySQL 模式） |
-| 整合 / E2E | 對真實服務做完整流程 + 非同步結算 | RestAssured, 內嵌 JDK HTTP server |
-| 併發 | N 執行緒 idempotency 競賽 → 剛好扣一次 | ExecutorService, 兩種 repo |
+| 整合 / E2E | 對真實服務做完整流程 + 非同步結算 | RestAssured，內嵌 JDK HTTP server |
+| 併發 | N 執行緒 idempotency 競賽 → 剛好扣一次 | ExecutorService，兩種 repo |
 | 耐久 | 長時間執行下，job 與 idempotency 儲存都維持有上限 | JUnit 5，直接檢查儲存內容 |
+| 指標 | 敵意 method 名稱下標籤基數維持有界；直方圖攜帶 250ms 的 SLO 邊界 | JUnit 5，1 萬種 method 名稱模糊測試 |
 
-**總計：46 個測試案例**（16 個單元/API/idempotency 基線 + 5 個真實服務 E2E + 6 個 JDBC ACID 與負向路徑 + 3 個欄位長度與 HTTP 狀態碼準確性 + 4 個幣別相符 + 4 個金額精度 + 5 個 API-key 認證 + 3 個耐久/滯留）
+**總計：52 個測試案例**（6 個指標基數與輸出格式 + 16 個單元/API/idempotency 基線 + 5 個真實服務 E2E + 6 個 JDBC ACID 與負向路徑 + 3 個欄位長度與 HTTP 狀態碼準確性 + 4 個幣別相符 + 4 個金額精度 + 5 個 API-key 認證 + 3 個耐久/滯留）
 
-> 所有 API、整合跟併發測試，都是透過內嵌 HTTP server 去打真正的
+> 所有 API、整合跟併發測試，均透過內嵌 HTTP server 呼叫真正的
 > `PaymentService` —— 完全沒用 WireMock。
 > `JdbcPaymentRepository` 提供真實的交易型 ACID 跟嚴格帳戶語意；
 > `PaymentRepository` 是抽換用的接縫（swap seam），執行期用
@@ -223,10 +224,10 @@ CREATE TABLE payments (
 ### 如何執行
 
 ```bash
-# 從 repo 根目錄 — 跑完全部 104 個測試（兩個模組）
+# 從 repo 根目錄 — 執行全部 113 個測試（兩個模組）
 mvn test
 
-# 只跑支付模組
+# 僅執行支付模組
 cd payment-api && mvn test
 
 # 以獨立服務執行支付 API（不需外部 DB）
@@ -251,7 +252,7 @@ open payment-api/target/site/allure-maven-plugin/index.html
 
 ## 模組 2 — 交易引擎模擬器
 
-一個 BTC/USDT 交易引擎，用 58 個自動化測試、MySQL 持久化跟即時 WebSocket 串流，把 4 種 LeetCode 演算法模式實際跑給你看。
+一個 BTC/USDT 交易引擎，以 61 個自動化測試、MySQL 持久化跟即時 WebSocket 串流，把 4 種 LeetCode 演算法模式實際跑給你看。
 
 ### 實作的 LeetCode 模式
 
@@ -267,15 +268,15 @@ open payment-api/target/site/allure-maven-plugin/index.html
 ```
 # CI（無 MySQL）—— 直接取自 Java Tests job 的輸出：
 Tests run: 0, ... -- in com.binance.trading.db.DBValidationTest
-Tests run: 58, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
+Tests run: 61, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 
 # 本機含 MySQL：
-Tests run: 66, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
+Tests run: 69, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 ```
 
 `DBValidationTest` 是在 `@BeforeAll` 裡用 `Assumptions.assumeTrue` 自我把關。容器層級的 assumption
-失敗會中止整個 class，所以 surefire 記的是 `Tests run: 0`，而不是 8 個 skipped —— CI 是 58、本機是
-66，不是 58 + 8 skipped。
+失敗會中止整個 class，所以 surefire 記的是 `Tests run: 0`，而不是 8 個 skipped —— CI 為 61、本機為
+69，而非 61 + 8 skipped。
 
 > 本機那個數字的前提是 `binance_test_db` **剛建好**。如果 DB 裡已經累積了先前長時間跑引擎留下的訂單，
 > `buySellRatioIsBalanced` 會失敗 —— 那個失敗正是 2026-07 事故在資料上留下的痕跡，分析見
@@ -287,6 +288,7 @@ Tests run: 66, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 | API | 7 | ✅ | ✅ | RestAssured 對真實內嵌 server |
 | 整合 | 4 | ✅ | ✅ | 端到端：4 種模式一起驗證 |
 | 耐久 | 3 | ✅ | ✅ | `OrderBookRetentionTest` —— 持續負載下集合維持有上限 |
+| 指標 | 3 | ✅ | ✅ | `EngineMetricsTest` —— /metrics 輸出格式、有界的保留量哨兵、無 `jvm_*` 洩漏 |
 | DB 驗證 | 8 | ⏭ 不執行 | ✅ | 幣安 QA 風格的 MySQL 檢查（`-Dgroups=db-validation`） |
 
 ### 架構（Architecture）
@@ -333,7 +335,7 @@ mvn package -q
 # 啟動（需要 localhost:3306 上的 MySQL）
 DB_PASSWORD=your_password java -jar target/trading-engine-simulator-1.0.0.jar
 
-# 跑測試（不需外部 DB）
+# 執行測試（不需外部 DB）
 mvn test
 ```
 
@@ -470,13 +472,14 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8093
 ### 架構
 
 ```
-Layer 4   Grafana ───── SRE 總覽 · 容量規劃 · JVM 事故重現
+Layer 4   Grafana ───── SRE 總覽 · SLO 與錯誤預算 · payment-api RED · 容量規劃 · JVM
                              ▲
-Layer 3   Alertmanager ── 分級路由 · 4 條抑制規則 · → Runbook
+Layer 3   Alertmanager ── 分級路由 · 4 條抑制規則 · → LINE / 心跳 · → Runbook
                              ▲
-Layer 2   Prometheus ──── 24 條規則 / 6 組 · 30 天保留
+Layer 2   Prometheus ──── 42 條規則 / 9 組 · 30 天保留
                              ▲
-Layer 1   採集 ────────── node_exporter（+textfile）· blackbox · mysqld · redis
+Layer 1   採集 ────────── node_exporter（+jstat textfile）· blackbox（+合成交易）· mysqld · redis
+                          · payment-api 與 trading-engine /metrics · alert-notifier /metrics
                              ▲
 Layer 0   被監控 ───────── payment-api · trading-engine · MySQL · Redis · 主機
 ```
@@ -504,16 +507,19 @@ JVM 指標由 [`jstat-exporter.sh`](deploy/observability/jstat-exporter.sh)
 
 ### 告警設計
 
-24 條規則分 6 組，每一組回答一個不同的問題：
+42 條規則分 9 組，每一組回答一個不同的問題：
 
 | 組 | 問題 | 條數 |
 |---|---|---|
-| `availability` | 使用者現在打得到嗎？（黑箱）| 3 |
+| `availability` | 使用者目前是否能連線？（黑箱）| 3 |
 | `work-progress` | 工作有在前進嗎？（事故 #2）| 3 |
 | `jvm-gc` | JVM 還健康嗎？（事故 #1）| 4 |
 | `saturation` | 資源快用完了嗎？（USE 方法）| 4 |
 | `capacity` | **多久之後**會用完？（`predict_linear`）| 4 |
-| `dependencies` | MySQL 與 Redis 還在嗎？| 6 |
+| `dependencies` | MySQL 與 Redis 是否存活？| 6 |
+| `meta` | 監控系統本身是否存活？（死人開關、採集器凍結、最後一哩、設定重載）| 11 |
+| `application` | 請求是否確實成功？（服務自報的 RED）| 1 |
+| `slo-burn-rate` | 錯誤預算消耗速度如何？（`slo.yml`）| 6 |
 
 **閾值全部由事故實測值反推：**
 
@@ -527,7 +533,7 @@ JVM 指標由 [`jstat-exporter.sh`](deploy/observability/jstat-exporter.sh)
 ### 告警路由
 
 `critical` 立即通知；`capacity` 類（預測 24 小時後才會發生的問題）刻意
-路由到不吵人的管道。4 條抑制規則避免一次故障噴出數十則通知：
+路由至非即時管道。4 條抑制規則避免單一故障產生數十則通知：
 
 1. `HostDown` 抑制該主機上所有其他告警
 2. 同服務的 `critical` 抑制 `warning`
@@ -535,7 +541,7 @@ JVM 指標由 [`jstat-exporter.sh`](deploy/observability/jstat-exporter.sh)
 4. `ServiceDown` 抑制 `EngineNotProgressing`
 
 > 告警疲勞比沒有告警更危險。值班的人如果每晚收 200 則通知，
-> 第 201 則真的事故就會被忽略。
+> 第 201 則真正的事故即會被忽略。
 
 ### Runbook —— 強制，不是口號
 
@@ -696,7 +702,7 @@ K4 是本專案特有的政策。沒有 probe 的 Deployment 等於主張
 
 ## 安全與憑證管理
 
-這是一個**公開** repo。任何提交進來的東西都是永久公開的 ——
+這是一個**公開** repo。任何提交的內容均為永久公開 ——
 就算之後刪掉，git 歷史仍然保留。
 
 ### 憑證絕不寫死在程式裡

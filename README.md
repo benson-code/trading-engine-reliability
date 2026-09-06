@@ -24,7 +24,7 @@ This repo turns that hard-won instinct into **executable proof at the DB layer**
 - **SLOs with error budgets, and one of them is already blown** — three SLIs, each matching a failure mode that actually happened on this host: availability, latency (250ms), and **work progress**. Measured over 3 days: availability **100.0000%**, latency **100.0000%**, work progress **97.3611%** against a 99% target — **163.9% over budget**. On 2026-09-03 the engine produced nothing for 115 minutes while `probe_success` stayed 1, latency stayed ~1ms and the process never restarted: the first two SLIs reported a perfect service throughout. Six multi-window multi-burn-rate alerts (14.4x paging, 6x ticketing) sit on top ([`docs/slo.md`](docs/slo.md)).
 - **Observability built from real incidents** — 42 Prometheus alert rules whose thresholds are reverse-engineered from two measured production incidents · 15 runbooks with CI-enforced coverage · Alertmanager routing with four inhibition rules · one-command incident-scene preservation.
 - **Two independent test layers against the running service** — the Java suite in CI, plus a Python (`pytest`) contract / validation / idempotency / concurrency suite and `k6` load scripts. Both boot a throwaway instance on an OS-assigned port and run it `nice -n 15`, so a run can never collide with — or write into — the long-lived services sharing this host ([`python-qa/`](python-qa/README.md)).
-- **CI-enforced quality** — 104 Java tests plus a mobile-web endurance suite · a declarative `BOUNDED-BY` gate that fails any long-lived collection with no eviction and no stated reason it cannot grow · admin-enforced branch protection on `main` · PR-only · five required checks must be green (secret scan first) · rebase-merge preserves the P1/P2/P3 commit narrative.
+- **CI-enforced quality** — 113 Java tests plus a mobile-web endurance suite · a declarative `BOUNDED-BY` gate that fails any long-lived collection with no eviction and no stated reason it cannot grow · admin-enforced branch protection on `main` · PR-only · five required checks must be green (secret scan first) · rebase-merge preserves the P1/P2/P3 commit narrative.
 
 ---
 
@@ -39,7 +39,7 @@ links to its counterpart at the top.
 | Project overview | [`README.md`](README.md) | [`README.zh-TW.md`](README.zh-TW.md) |
 | SLOs & error budgets | [`docs/slo.md`](docs/slo.md) | [`docs/slo.zh-TW.md`](docs/slo.zh-TW.md) |
 | Runbook index | [`docs/runbooks/README.md`](docs/runbooks/README.md) | [`docs/runbooks/README.zh-TW.md`](docs/runbooks/README.zh-TW.md) |
-| 13 alert runbooks | `docs/runbooks/*.md` | `docs/runbooks/*.zh-TW.md` |
+| 15 alert runbooks | `docs/runbooks/*.md` | `docs/runbooks/*.zh-TW.md` |
 
 **Not yet translated**, and honest about it: the full incident RCA
 ([`RCA-zh-TW.md`](docs/incident-2026-07-14-gc-death-spiral/RCA-zh-TW.md), ~1,000
@@ -56,8 +56,8 @@ English:
 
 ```
 trading-engine-reliability/        ← Monorepo root (Maven parent POM)
-├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 46 tests)
-├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 58 tests in CI / 66 with MySQL)
+├── payment-api/                   ← Module 1: runnable Payment API + QA tests (Java 17, 52 tests)
+├── trading-engine-simulator/      ← Module 2: BTC trading engine (Java 17, 61 tests in CI / 69 with MySQL)
 ├── trading-engine-ui/             ← Module 3: Real-time dashboard (Next.js 15) + mobile-web endurance test
 ├── python-qa/                     ← Module 5: pytest contract suite + k6 load scripts (hermetic)
 ├── deploy/
@@ -70,7 +70,7 @@ trading-engine-reliability/        ← Monorepo root (Maven parent POM)
 └── tools/                         ← CI quality gates + incident forensics
 ```
 
-**One command runs all 104 Java tests:**
+**One command runs all 113 Java tests:**
 ```bash
 mvn test   # runs payment-api + trading-engine-simulator in sequence
 ```
@@ -96,8 +96,9 @@ Full-cycle automated testing covering API testing, database verification, idempo
 | Integration / E2E | Full flow + async settlement against the real service | RestAssured, embedded JDK HTTP server |
 | Concurrency | N-thread idempotency race → exactly-once debit | ExecutorService, both repos |
 | Endurance | Job and idempotency stores stay capped over a long run | JUnit 5, direct store inspection |
+| Metrics | Label cardinality stays bounded under hostile input; histogram carries the 250ms SLO edge | JUnit 5, 10,000-method fuzz |
 
-**Total: 46 test cases** (16 unit/API/idempotency baseline + 5 real-service E2E + 6 JDBC ACID & negative-path + 3 field-length & HTTP-code accuracy + 4 currency-match + 4 amount-precision + 5 API-key auth + 3 endurance/retention)
+**Total: 52 test cases** (6 metrics cardinality & exposition + 16 unit/API/idempotency baseline + 5 real-service E2E + 6 JDBC ACID & negative-path + 3 field-length & HTTP-code accuracy + 4 currency-match + 4 amount-precision + 5 API-key auth + 3 endurance/retention)
 
 > All API, integration and concurrency tests exercise the real
 > `PaymentService` through an embedded HTTP server — no WireMock.
@@ -229,7 +230,7 @@ The `UNIQUE(idempotency_key)` constraint is the concurrency backstop: under a ra
 ### How to Run
 
 ```bash
-# From repo root — runs all 104 tests (both modules)
+# From repo root — runs all 113 tests (both modules)
 mvn test
 
 # Payment module only
@@ -257,7 +258,7 @@ open payment-api/target/site/allure-maven-plugin/index.html
 
 ## Module 2 — Trading Engine Simulator
 
-BTC/USDT trading engine demonstrating 4 LeetCode algorithm patterns with 58 automated tests, MySQL persistence, and live WebSocket streaming.
+BTC/USDT trading engine demonstrating 4 LeetCode algorithm patterns with 61 automated tests, MySQL persistence, and live WebSocket streaming.
 
 ### LeetCode Patterns Implemented
 
@@ -273,15 +274,15 @@ BTC/USDT trading engine demonstrating 4 LeetCode algorithm patterns with 58 auto
 ```
 # CI (no MySQL) — verbatim from the Java Tests job:
 Tests run: 0, ... -- in com.binance.trading.db.DBValidationTest
-Tests run: 58, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
+Tests run: 61, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 
 # Local with MySQL:
-Tests run: 66, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
+Tests run: 69, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 ```
 
 `DBValidationTest` gates itself in `@BeforeAll` via `Assumptions.assumeTrue`. A container-level
 assumption aborts the class, so surefire reports it as `Tests run: 0` rather than as 8 skipped —
-58 in CI and 66 locally, not 58 + 8 skipped.
+61 in CI and 69 locally, not 61 + 8 skipped.
 
 > The local figure assumes a **freshly seeded** `binance_test_db`. Running against a database
 > that has accumulated orders from an earlier long engine run will fail
@@ -294,6 +295,7 @@ assumption aborts the class, so surefire reports it as `Tests run: 0` rather tha
 | API | 7 | ✅ | ✅ | RestAssured against live embedded server |
 | Integration | 4 | ✅ | ✅ | End-to-end: all 4 patterns verified together |
 | Endurance | 3 | ✅ | ✅ | `OrderBookRetentionTest` — collections stay bounded under sustained load |
+| Metrics | 3 | ✅ | ✅ | `EngineMetricsTest` — exposition format, bounded retained-orders canary, no `jvm_*` leakage |
 | DB Validation | 8 | ⏭ Not run | ✅ | Binance QA-style MySQL checks (`-Dgroups=db-validation`) |
 
 ### Architecture
@@ -489,13 +491,14 @@ Full root-cause analysis: [`docs/incident-2026-07-14-gc-death-spiral/`](docs/inc
 ### Architecture
 
 ```
-Layer 4   Grafana ───── SRE overview · capacity planning · JVM incident replay
+Layer 4   Grafana ───── SRE overview · SLO & error budget · payment-api RED · capacity · JVM
                              ▲
-Layer 3   Alertmanager ── severity routing · 4 inhibition rules · → runbooks
+Layer 3   Alertmanager ── severity routing · 4 inhibition rules · → LINE / heartbeat · → runbooks
                              ▲
-Layer 2   Prometheus ──── 24 rules / 6 groups · 30d retention
+Layer 2   Prometheus ──── 42 rules / 9 groups · 30d retention
                              ▲
-Layer 1   Collection ──── node_exporter (+textfile) · blackbox · mysqld · redis
+Layer 1   Collection ──── node_exporter (+jstat textfile) · blackbox (+synthetic txn) · mysqld · redis
+                          · payment-api & trading-engine /metrics · alert-notifier /metrics
                              ▲
 Layer 0   Monitored ───── payment-api · trading-engine · MySQL · Redis · host
 ```
@@ -524,7 +527,7 @@ destroyed the clean post-fix reference run.
 
 ### Alert design
 
-24 rules in 6 groups, each answering a different question:
+42 rules in 9 groups, each answering a different question:
 
 | Group | Question | Rules |
 |---|---|---|
@@ -534,6 +537,9 @@ destroyed the clean post-fix reference run.
 | `saturation` | Are resources running out? (USE method) | 4 |
 | `capacity` | *How long until* they run out? (`predict_linear`) | 4 |
 | `dependencies` | Are MySQL and Redis alive? | 6 |
+| `meta` | Is the monitoring system itself alive? (dead man's switch, frozen collector, last mile, config reload) | 11 |
+| `application` | Are requests actually succeeding? (self-reported RED) | 1 |
+| `slo-burn-rate` | How fast is the error budget burning? (`slo.yml`) | 6 |
 
 **Thresholds are reverse-engineered from the incidents:**
 
