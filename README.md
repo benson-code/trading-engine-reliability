@@ -27,6 +27,30 @@ This repo turns that hard-won instinct into **executable proof at the DB layer**
 
 ---
 
+## Documentation
+
+Everything here is written in both English and Traditional Chinese. **English
+takes the default filename; Chinese carries a `.zh-TW` suffix**, and every page
+links to its counterpart at the top.
+
+| Document | English | 繁體中文 |
+|---|---|---|
+| Project overview | [`README.md`](README.md) | [`README.zh-TW.md`](README.zh-TW.md) |
+| SLOs & error budgets | [`docs/slo.md`](docs/slo.md) | [`docs/slo.zh-TW.md`](docs/slo.zh-TW.md) |
+| Runbook index | [`docs/runbooks/README.md`](docs/runbooks/README.md) | [`docs/runbooks/README.zh-TW.md`](docs/runbooks/README.zh-TW.md) |
+| 13 alert runbooks | `docs/runbooks/*.md` | `docs/runbooks/*.zh-TW.md` |
+
+**Not yet translated**, and honest about it: the full incident RCA
+([`RCA-zh-TW.md`](docs/incident-2026-07-14-gc-death-spiral/RCA-zh-TW.md), ~1,000
+lines) and the resource-safety checklist exist only in Chinese. English readers
+are not stranded — the forensic reports written during the incident are in
+English:
+[`RCA_REPORT.md`](docs/incident-2026-07-14-gc-death-spiral/evidence/RCA_REPORT.md),
+[`INCIDENT_REPORT.md`](docs/incident-2026-07-14-gc-death-spiral/evidence/INCIDENT_REPORT.md),
+[`LOG_EVENT_ANALYSIS.md`](docs/incident-2026-07-14-gc-death-spiral/evidence/LOG_EVENT_ANALYSIS.md).
+
+---
+
 ## Repository Structure
 
 ```
@@ -261,7 +285,7 @@ assumption aborts the class, so surefire reports it as `Tests run: 0` rather tha
 > The local figure assumes a **freshly seeded** `binance_test_db`. Running against a database
 > that has accumulated orders from an earlier long engine run will fail
 > `buySellRatioIsBalanced` — that failure is the 2026-07 incident showing through the data, and
-> is analysed in [RCA §8.1](docs/incident-2026-07-14-gc-death-spiral/RCA-zh-TW.md).
+> is analysed in [RCA §8.1](docs/incident-2026-07-14-gc-death-spiral/evidence/RCA_REPORT.md).
 
 | Suite | Tests | CI | Local (MySQL) | Description |
 |---|---|---|---|---|
@@ -458,7 +482,7 @@ days while producing nothing. No probe that asks *"is the service responding?"*
 can detect that. The platform's answer is to measure **whether work is
 progressing**, not whether a process is alive.
 
-Full root-cause analysis: [`docs/incident-2026-07-14-gc-death-spiral/`](docs/incident-2026-07-14-gc-death-spiral/RCA-zh-TW.md)
+Full root-cause analysis: [`docs/incident-2026-07-14-gc-death-spiral/`](docs/incident-2026-07-14-gc-death-spiral/evidence/RCA_REPORT.md)
 (with preserved evidence and SHA256 manifests).
 
 ### Architecture
@@ -514,7 +538,7 @@ destroyed the clean post-fix reference run.
 
 | Signal | Threshold | Measured during the incident |
 |---|---|---|
-| Full GC as a fraction of process uptime | > 10% | **70%** (491,218s STW / 698,732s uptime) |
+| Full GC as a fraction of process uptime | > 10% | **43.8%** (491,218s STW / 1,120,514s uptime) |
 | Old-gen utilisation | > 85% | **99.99%** |
 | Full GC count | rate > 0.1/s | **114,879 collections** |
 | Order generation rate | 0 for 10 min | normal is **1,198 rows/min** (≈20/s) |

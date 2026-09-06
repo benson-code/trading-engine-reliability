@@ -1,34 +1,38 @@
-# Runbook — 磁碟容量
+# Runbook — Disk capacity
 
-> **對應告警**：`HostDiskLow` (<15%) · `DiskWillFillIn24h` · `DiskWillFillIn7d`
+**English** | [繁體中文](disk-capacity.zh-TW.md)
 
-## 預測性告警的意義
-`DiskWillFillIn24h` 用 `predict_linear` 以過去 6 小時的斜率外推。
-它不是問「現在滿了嗎」，而是問「**多久之後會滿**」——
-在還有時間處理的時候通知，這就是 JD 說的「容量規劃」。
+> **Alerts**: `HostDiskLow` (<15%) · `DiskWillFillIn24h` · `DiskWillFillIn7d`
 
-## 立即確認
+## What a predictive alert is for
+`DiskWillFillIn24h` uses `predict_linear` to extrapolate from the slope of the
+last six hours. It does not ask "is the disk full now" — it asks **"how long
+until it is"**, and notifies while there is still time to act. That is what
+capacity planning means in practice.
+
+## First three minutes
 ```bash
 df -h /
 du -xh --max-depth=2 / 2>/dev/null | sort -rh | head -20
 
-# 本專案的三個常見成長點
-du -sh /var/lib/mysql                                  # ① MySQL 資料（orders 表持續成長）
-docker system df                                       # ② Docker image / volume
-du -sh /var/log/journal                                # ③ systemd journal
+# The three things that grow in this project
+du -sh /var/lib/mysql        # (1) MySQL data — the orders table grows continuously
+docker system df             # (2) Docker images and volumes
+du -sh /var/log/journal      # (3) systemd journal
 ```
 
-## 止血（由安全到激進）
+## Stop the bleeding (safest first)
 ```bash
-docker system prune -f                    # 移除停止的容器與 dangling image
-sudo journalctl --vacuum-time=7d          # 收斂 journal
+docker system prune -f                    # remove stopped containers and dangling images
+sudo journalctl --vacuum-time=7d          # shrink the journal
 docker volume ls -qf dangling=true | xargs -r docker volume rm
 ```
 
-⚠️ **不要**直接刪 `binance_test_db.orders` 的資料 ——
-它是事故證據鏈與 C4「歷史不可變性」檢查的基準。
-要縮減請先跑 `tools/check-db-integrity.sh` 建立 baseline。
+⚠️ **Do not** delete rows from `binance_test_db.orders` directly — that table is
+part of the incident evidence chain and the baseline for the C4
+"history is immutable" integrity check. If it must be shrunk, run
+`tools/check-db-integrity.sh` first to establish a baseline.
 
-## 事後
-- [ ] Prometheus retention 目前 30d，評估是否過長
-- [ ] orders 表已達 3,700 萬筆，評估分區或歸檔策略
+## Follow-up
+- [ ] Prometheus retention is 30d — evaluate whether that is longer than needed
+- [ ] The orders table holds **59,557,108 rows** (measured 2026-09-06); evaluate partitioning or archiving

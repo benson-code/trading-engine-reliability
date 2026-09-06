@@ -1,41 +1,44 @@
-# Runbook — 服務外部探測失敗
+# Runbook — External probe failing
 
-> **對應告警**：`ServiceDown` (`probe_success == 0`, 1m) · critical
+**English** | [繁體中文](service-down.zh-TW.md)
 
-## 影響
-黑箱探測是**從使用者角度**的量測。這條亮代表使用者現在打不到服務——
-優先於任何服務自報的健康指標。
+> **Alert**: `ServiceDown` (`probe_success == 0`, 1m) · critical
 
-## 立即確認
+## Impact
+A black-box probe measures the service **from the user's point of view**. When
+this fires, users cannot reach the service right now — and that takes priority
+over any health status the service reports about itself.
+
+## First three minutes
 ```bash
-# 1. 探測目標是哪一個
+# 1. Which target is failing
 curl -s 'http://127.0.0.1:9090/api/v1/query?query=probe_success==0' | jq -r '.data.result[].metric.instance'
 
-# 2. 手動重現
-curl -v -m 5 <目標 URL>
+# 2. Reproduce it by hand
+curl -v -m 5 <target URL>
 
-# 3. 進程還在嗎 / port 還開著嗎
+# 3. Is the process still there, is the port still open
 pgrep -af java ; ss -tlnp | grep <port>
 
-# 4. 是不是「進程活著但沒回應」（GC 飽和的典型症狀）
+# 4. Is this "process alive but not responding"? (the classic GC-saturation shape)
 uptime ; top -b -n 1 | head -12
 ```
 
-## 分流
-| 觀察 | 走哪份 runbook |
+## Triage
+| What you see | Where to go |
 |---|---|
-| 進程不存在 | 直接重啟；檢查 journal 找退出原因 |
-| 進程在、CPU 滿載 | [gc-death-spiral](gc-death-spiral.md) |
-| 進程在、CPU 閒置、port 沒開 | 應用啟動失敗，看 journal |
-| 進程在、port 開、但不回應 | [gc-death-spiral](gc-death-spiral.md) 或執行緒池耗盡 |
-| 主機整台失聯 | [host-down](host-down.md) |
+| Process is gone | Restart it; read the journal for the exit reason |
+| Process running, CPU pinned | [gc-death-spiral](gc-death-spiral.md) |
+| Process running, CPU idle, port closed | Application failed to start — read the journal |
+| Process running, port open, no response | [gc-death-spiral](gc-death-spiral.md), or thread-pool exhaustion |
+| Whole host unreachable | [host-down](host-down.md) |
 
-## 止血
+## Stop the bleeding
 ```bash
-journalctl -u <service> -n 100 --no-pager   # 先看，再動
-sudo systemctl restart <service>            # CPU 飽和時請先保留現場
+journalctl -u <service> -n 100 --no-pager   # look first, then act
+sudo systemctl restart <service>            # if CPU is saturated, preserve the scene first
 ```
 
-## 事後
-- [ ] 這次故障有沒有更早的前兆告警？沒有的話補一條
-- [ ] 探測間隔（15s）與 `for: 1m` 是否合適
+## Follow-up
+- [ ] Was there an earlier warning signal for this failure? If not, add one
+- [ ] Are the probe interval (15s) and `for: 1m` still the right choice?

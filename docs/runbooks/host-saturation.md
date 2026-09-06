@@ -1,34 +1,38 @@
-# Runbook — 主機資源飽和
+# Runbook — Host resource saturation
 
-> **對應告警**：`HostCpuSaturated` (>85%, 10m) · `HostLoadHigh` (>1.5/core, 10m) · `HostMemoryLow` (<15%, 10m) · warning
+**English** | [繁體中文](host-saturation.zh-TW.md)
 
-## 主機規格基準
-`orion-dev`：Oracle Cloud aarch64、**2 vCPU / 11 GiB / swap = 0**。
+> **Alerts**: `HostCpuSaturated` (>85%, 10m) · `HostLoadHigh` (>1.5/core, 10m) · `HostMemoryLow` (<15%, 10m) · warning
 
-**swap 為 0 很重要**：記憶體壓力沒有任何緩衝，用完就是硬碰硬。
+## Baseline for this host
+`orion-dev`: Oracle Cloud aarch64, **2 vCPU / 11 GiB / swap = 0**.
 
-## 立即確認
+**The zero swap matters**: there is no cushion at all under memory pressure.
+When memory runs out, it runs out hard.
+
+## First three minutes
 ```bash
-uptime                                  # load average 除以 2 = 每核心負載
-top -b -n 1 | head -15                  # 誰在吃 CPU
-ps aux --sort=-%mem | head -8           # 誰在吃記憶體
+uptime                                  # load average ÷ 2 = load per core
+top -b -n 1 | head -15                  # who is eating CPU
+ps aux --sort=-%mem | head -8           # who is eating memory
 free -h
 ```
 
-## 分流
-| 觀察 | 判斷 |
+## Triage
+| What you see | What it means |
 |---|---|
-| load ≈ 核心數、單一 java 進程吃滿 | 高機率是 GC → [gc-death-spiral](gc-death-spiral.md) |
-| load 高但 CPU 不高 | I/O 等待 → `iostat -x 2 3`、看磁碟 |
-| 記憶體被 buff/cache 佔用 | 通常正常，看 `MemAvailable` 而非 `free` |
-| 多個容器一起吃 | `docker stats --no-stream` 找出來源 |
+| Load ≈ core count, one java process pinned | Very likely GC → [gc-death-spiral](gc-death-spiral.md) |
+| Load high but CPU is not | I/O wait → `iostat -x 2 3`, look at the disk |
+| Memory held by buff/cache | Usually normal — read `MemAvailable`, not `free` |
+| Several containers together | `docker stats --no-stream` to find the source |
 
-## 止血
+## Stop the bleeding
 ```bash
-docker stats --no-stream                 # 先確認是不是自己的監控堆疊在吃
-# 非必要的容器可暫停：docker compose stop <service>
+docker stats --no-stream                 # first check it is not the monitoring stack itself
+# Non-essential containers can be paused: docker compose stop <service>
 ```
 
-## 事後
-- [ ] 這台主機同時跑著訂單產生器、兩支 JVM、監控堆疊與前端 dev server。
-      容量規劃上應評估拆分到第二台實例。
+## Follow-up
+- [ ] This host simultaneously runs the order generator, two JVMs, the monitoring
+      stack and a frontend dev server. Capacity planning should evaluate splitting
+      onto a second instance.

@@ -1,189 +1,207 @@
-# SLO —— 服務水準目標與錯誤預算
+# SLOs and Error Budgets
 
-> 目標值由 **2026-09-06** 在本機實測推導，非套用預設值。
-> 規則：[`deploy/observability/prometheus/slo.yml`](../deploy/observability/prometheus/slo.yml)
-> 處理程序：[`docs/runbooks/slo-burn-rate.md`](runbooks/slo-burn-rate.md)
-> 隨時查看：`make slo`
+**English** | [繁體中文](slo.zh-TW.md)
+
+> Targets were **derived from measurement on this host on 2026-09-06**, not copied
+> from vendor defaults.
+> Rules: [`deploy/observability/prometheus/slo.yml`](../deploy/observability/prometheus/slo.yml)
+> Response procedure: [`docs/runbooks/slo-burn-rate.md`](runbooks/slo-burn-rate.md)
+> Check any time: `make slo`
 
 ---
 
-## 為什麼在 24 條告警之外還要這一層
+## Why this layer exists alongside 24 symptom alerts
 
-`alerts.yml` 和 `slo.yml` 回答的是兩個不同的問題：
+`alerts.yml` and `slo.yml` answer two different questions:
 
-| | 問題 | 時間尺度 | 動作 |
+| | The question it answers | Time scale | What you do about it |
 |---|---|---|---|
-| `alerts.yml` | **現在有東西壞了嗎？** | 秒～分鐘 | 去修 |
-| `slo.yml` | **我們還剩多少犯錯的額度？** | 天～30 天 | 決定要不要繼續冒險 |
+| `alerts.yml` | **Is something broken right now?** | seconds to minutes | Go fix it |
+| `slo.yml` | **How much room to fail do we have left?** | days to 30 days | Decide whether to keep taking risks |
 
-症狀告警沒辦法回答「這個月已經爛到該停止發版了嗎」。
-錯誤預算可以，而且它把這個決定從主觀爭論變成查表。
+A symptom alert cannot tell you whether this month has been bad enough to stop
+shipping features. An error budget can — and it turns that decision from an
+argument into a lookup.
 
 ---
 
-## 三個 SLI，以及為什麼是這三個
+## Three indicators, and why these three
 
-每一個都對應這台機器上**真的發生過**的失效模式。
+Each one corresponds to a failure mode that **actually happened on this machine**.
 
-### 1. `payment_api_availability` —— 打得到嗎
+### 1. `payment_api_availability` — can users reach it?
 
 ```promql
 probe_success{instance="http://127.0.0.1:8091/api/v1/health"}
 ```
 
-黑箱探測，從外部看。**目標 99.9%**。
+Black-box probing, measured from outside the service. **Target: 99.9%.**
 
-### 2. `payment_api_latency` —— 打得到而且夠快嗎
+### 2. `payment_api_latency` — can they reach it *and* is it fast?
 
 ```promql
 probe_duration_seconds{instance="..."} < bool 0.25
 ```
 
-**目標 99.5%**，門檻 250ms。
+**Target: 99.5%**, threshold 250 ms.
 
-門檻**刻意不是**照著現況調的。實測分布：
+The threshold is **deliberately not tuned to current performance.** Measured
+distribution over 3 days:
 
-| 統計量 | 主機實例 (:8091) | 容器實例 (:8094) |
+| Statistic | Host instance (:8091) | Container instance (:8094) |
 |---|---|---|
-| 平均 | 1.0 ms | 1.4 ms |
+| mean | 1.0 ms | 1.4 ms |
 | p95 | 1.8 ms | 2.4 ms |
 | p99 | 2.6 ms | 3.4 ms |
 | p99.9 | 4.0 ms | 5.3 ms |
-| 最大 | 6.4 ms | 121.6 ms |
+| max | 6.4 ms | 121.6 ms |
 
-250ms 比 p99.9 慢了將近兩個數量級。如果照「現況 + 一點餘裕」去設，
-應該設在 10ms —— 但那會讓 SLO 變成一個對雜訊敏感、對真正的事故
-不敏感的東西。**門檻要設在使用者會有感的地方，不是設在現在剛好過得了的地方。**
+250 ms is nearly two orders of magnitude slower than p99.9. Tuning it to
+"current performance plus headroom" would put it near 10 ms — which is
+sensitive to noise and blind to the failure it exists to catch.
 
-250ms 也正好是 GC 停頓會穿透的位置：事故 #1 當時單次 Full GC 停頓以「秒」計。
+**A threshold belongs where the user starts to hurt, not where the service
+currently happens to pass.** 250 ms is also where a GC pause becomes visible:
+during incident #1, individual Full GC pauses were measured in *seconds*.
 
-### 3. `engine_work_progress` —— 打得到，但事情有在做嗎
+### 3. `engine_work_progress` — it answers, but is it doing anything?
 
 ```promql
 rate(engine_orders_generated_total[5m]) > bool 0
 ```
 
-**目標 99%**。這一條是整個 repo 存在的理由。
+**Target: 99%.** This indicator is the reason this repository exists.
 
-刻意**不加** `and engine_up == 1`。行程掛掉時工作當然也沒前進，那同樣是
-一次工作進度失效。把「行程還活著」當成免責條件，正是事故 #2 能靜默
-六天的那個思考錯誤。
+It deliberately **omits** `and engine_up == 1`. When the process is dead, work
+is not progressing either — that is still a work-progress failure. Treating
+"the process is alive" as an excuse is exactly the reasoning error that let
+incident #2 run silently for six days.
 
 ---
 
-## 目標值怎麼來的
+## How the targets were derived
 
-實測視窗：2026-09-03 ~ 09-06（Prometheus 目前只有約 3.5 天資料，
-見下方「已知限制」）。
+Measurement window: 2026-09-03 to 09-06. Prometheus currently holds roughly
+3.5 days of history — see *Known limitations* below.
 
-| SLO | 3 天實測 | 設定目標 | 理由 |
+| SLO | Measured (3d) | Target set | Reasoning |
 |---|---|---|---|
-| `payment_api_availability` | **100.0000%** | 99.9% | 留一個數量級的餘裕；單節點自架環境不該宣稱 99.99% |
-| `payment_api_latency` | **100.0000%** | 99.5% | 門檻 250ms 下實測零違反；目標放寬是承認這是 dev 環境 |
-| `engine_work_progress` | **97.3611%** | 99% | ⚠ 已經超支 —— 見下 |
+| `payment_api_availability` | **100.0000%** | 99.9% | One order of magnitude of headroom. A single-node self-hosted box has no business claiming 99.99%. |
+| `payment_api_latency` | **100.0000%** | 99.5% | Zero violations at the 250 ms threshold. The loose target is an admission that this is a dev environment. |
+| `engine_work_progress` | **97.3611%** | 99% | ⚠ Already over budget — see below |
 
-**工作進度目標刻意設在實測值之上。** 訂 97% 可以讓報表變綠，
-但那是把量出來的問題改寫成可接受的現況。目標訂 99%，讓那 115 分鐘
-持續顯示為超支，直到它被真的修掉。
+**The work-progress target is set deliberately above the measured value.**
+Setting it to 97% would make the report go green, but that is just rewriting a
+measured problem as an accepted status quo.
 
 ```
 $ make slo
 
- SLO                            實測    目標 預算剩餘  狀態
- payment_api_availability    100.0000%   99.900%     +100.0%  ✅ OK
- payment_api_latency         100.0000%   99.500%     +100.0%  ✅ OK
- engine_work_progress         97.3611%   99.000%     -163.9%  ❌ OVER
+ SLO                          Measured    Target   Budget left  Status
+ payment_api_availability    100.0000%   99.900%       +100.0%   OK
+ payment_api_latency         100.0000%   99.500%       +100.0%   OK
+ engine_work_progress         97.3611%   99.000%       -163.9%   OVER
 ```
 
 ---
 
-## 案例：2026-09-03 —— 為什麼需要第三個 SLI
+## Case study: 2026-09-03 — why the third indicator is not optional
 
-3 天視窗內有**一段** 115 分鐘的工作進度中斷：
+Within the 3-day window there is **one** work-progress outage, lasting 115 minutes:
 
 ```
-09-03 05:46 → 07:41 UTC   持續 115 分
+09-03 05:46 → 07:41 UTC
 ```
 
-同一段時間內其他訊號長這樣：
+Here is what every other signal reported during that window:
 
-| 指標 | 該段期間的值 | 意義 |
+| Metric | Value during the outage | What it means |
 |---|---|---|
-| `probe_success` | `1` 全程 | 探測全部成功 |
-| `probe_duration_seconds` | ≈ 1 ms | 回應正常快 |
-| `engine_up` | `1` 全程 | REST API 可達 |
-| `jvm_uptime_seconds` | 170269 → 179269 **持續遞增** | **行程從未重啟** |
-| `engine_running` | `0` 全程，08:00 才回 `1` | 訂單產生器是停的 |
-| `engine_orders_generated_total` | 完全沒有增加 | **零產出** |
+| `probe_success` | `1` throughout | Every probe succeeded |
+| `probe_duration_seconds` | ~1 ms | Response times were normal |
+| `engine_up` | `1` throughout | The REST API was reachable |
+| `jvm_uptime_seconds` | 170269 → 179269, **monotonically increasing** | **The process never restarted** |
+| `engine_running` | `0` throughout, back to `1` at 08:00 | The order generator was stopped |
+| `engine_orders_generated_total` | no increase at all | **Zero output** |
 
-也就是說：
+In other words:
 
-> **可用性 SLI = 100%。延遲 SLI = 100%。**
-> **只有工作進度 SLI 看得見這 115 分鐘。**
+> **The availability SLI read 100%. The latency SLI read 100%.**
+> **Only the work-progress SLI could see those 115 minutes.**
 
-這不是假設，是三天前這台機器上量到的資料。它跟 2026-07 事故 #2
-（靜默降級六天）是同一個形狀 —— 行程活著、健康檢查全綠、業務歸零。
+This is not a hypothetical. It is data measured on this machine three days
+before this document was written, and it is the same shape as incident #2 from
+July 2026 — process alive, health checks green, business output zero — which
+went unnoticed for six days.
 
-**如果這套 SLO 只有可用性和延遲，它會給出一份完美的報表。**
-
----
-
-## 錯誤預算政策
-
-```
-預算還有剩  → 可以繼續發版、繼續做風險變更
-預算見底    → 凍結非必要變更，可靠度工作排最前
-預算超支    → 停止發布新功能，直到 30 天視窗滾動回正
-```
-
-依目前狀態，`engine_work_progress` 超支，所以按這個政策，
-**該做的是修那個工作中斷，不是加新功能。**
+**An SLO suite built only from availability and latency would have produced a
+perfect report.**
 
 ---
 
-## 燒錄率告警（多視窗多燒錄率）
+## Error budget policy
 
-燒錄率 = 目前失誤率 ÷ 預算允許的失誤率。`1x` = 剛好 30 天用完。
+```
+Budget remaining  → keep shipping, keep taking calculated risks
+Budget exhausted  → freeze non-essential change; reliability work goes first
+Budget overspent  → stop shipping features until the 30-day window rolls clear
+```
 
-| 告警 | 長視窗 | 短視窗 | 燒錄率 | 嚴重度 | 約多久燒光 |
+As things stand, `engine_work_progress` is overspent. Under this policy, the
+correct next action is **to fix that work stoppage, not to add features.**
+
+---
+
+## Burn-rate alerting (multi-window, multi-burn-rate)
+
+Burn rate = current error rate ÷ the error rate the budget allows.
+`1x` means you finish the 30-day budget exactly on day 30.
+
+| Alert | Long window | Short window | Burn rate | Severity | Budget gone in |
 |---|---|---|---|---|---|
-| `SLOFastBurn*` | 1h | 5m | 14.4x | critical | 2 天 |
-| `SLOSlowBurn*` | 6h | 30m | 6x | warning | 5 天 |
+| `SLOFastBurn*` | 1h | 5m | 14.4x | critical | ~2 days |
+| `SLOSlowBurn*` | 6h | 30m | 6x | warning | ~5 days |
 
-三個 SLO 各兩條，共 6 條，全部指向同一份 runbook（處理程序相同，
-差別只在往下轉到哪一份症狀 runbook）。
+Two per SLO, six in total, all pointing at the same runbook — the response
+procedure is identical, only the symptom runbook you escalate into differs.
 
-**為什麼要長短視窗同時成立**：長視窗負責靈敏度，短視窗負責重置。
-只看長視窗的話，一次短暫爆發會讓告警在事情早就恢復後還亮好幾小時，
-接著大家就開始無視它 —— 告警疲勞不是值班的問題，是設計的問題。
-
----
-
-## 已知限制
-
-誠實比好看重要，這三點會影響上面所有數字的解讀：
-
-1. **記錄規則不會回溯。** `slo.yml` 是 2026-09-06 才加入的，
-   所以 `slo:*:ratio_rate3d` / `ratio_rate30d` 從那一刻才開始累積，
-   在填滿之前會偏樂觀（顯示 100%）。本文件與 `make slo` 的數字
-   都是用 subquery 對**原始指標**回算的，不受此影響。
-   兩者要到 2026-10-06 之後才會一致。
-
-2. **只有約 3.5 天的歷史。** Prometheus 保留期設定為 30 天
-   （`--storage.tsdb.retention.time=30d`），但監控棧近期重啟過，
-   實際資料只回溯到 09-03 前後。所以 30 天視窗的數字目前不具意義，
-   全文一律以 3 天視窗陳述。
-
-3. **這是單節點自架的開發環境，不是正式環境。** 沒有多可用區、
-   沒有真實使用者流量、負載來自本機的訂單產生器。這裡的 SLO 證明的是
-   *方法*（怎麼定義 SLI、怎麼推導門檻、怎麼設計燒錄率告警），
-   不是這套服務有正式環境等級的可靠度。
+**Why both a long and a short window must be true at once:** the long window
+provides sensitivity (something really is burning), the short window provides
+reset (it clears itself once the burn stops). Without the short window, a brief
+spike leaves the alert lit for hours after recovery — and then people start
+ignoring it. Alert fatigue is a design failure, not an on-call failure.
 
 ---
 
-## 相關
+## Known limitations
 
-- [`slo.yml`](../deploy/observability/prometheus/slo.yml) —— 規則本體
-- [`runbooks/slo-burn-rate.md`](runbooks/slo-burn-rate.md) —— 燒錄時怎麼辦
-- [`runbooks/engine-not-progressing.md`](runbooks/engine-not-progressing.md) —— 工作進度歸零的症狀 runbook
-- [`incident-2026-07-14-gc-death-spiral/RCA-zh-TW.md`](incident-2026-07-14-gc-death-spiral/RCA-zh-TW.md) —— 兩次事故的完整根因分析
+Being honest about these matters more than looking good. All three affect how
+the numbers above should be read:
+
+1. **Recording rules are not retroactive.** `slo.yml` was added on 2026-09-06,
+   so `slo:*:ratio_rate3d` and `ratio_rate30d` only begin accumulating from
+   that moment and read optimistically (100%) until they fill. Every number in
+   this document, and everything `make slo` prints, is recomputed from **raw
+   metrics** via subquery and is not affected. The two will not agree until
+   after 2026-10-06.
+
+2. **Only ~3.5 days of history exists.** Prometheus retention is configured for
+   30 days (`--storage.tsdb.retention.time=30d`), but the monitoring stack was
+   restarted recently, so data only goes back to around 09-03. The 30-day
+   windows are therefore meaningless today, and this document states everything
+   over a 3-day window instead.
+
+3. **This is a single-node, self-hosted dev environment, not production.** No
+   multi-AZ, no real user traffic, and the load comes from a local order
+   generator. What the SLOs here demonstrate is the *method* — how to define an
+   SLI, how to derive a threshold, how to design burn-rate alerting — not that
+   this service has production-grade reliability.
+
+---
+
+## Related
+
+- [`slo.yml`](../deploy/observability/prometheus/slo.yml) — the rules themselves
+- [`runbooks/slo-burn-rate.md`](runbooks/slo-burn-rate.md) — what to do when budget is burning
+- [`runbooks/engine-not-progressing.md`](runbooks/engine-not-progressing.md) — the symptom runbook for zero work progress
+- [`incident-2026-07-14-gc-death-spiral/`](incident-2026-07-14-gc-death-spiral/) — full root-cause analysis of both incidents

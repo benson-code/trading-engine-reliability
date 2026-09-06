@@ -71,6 +71,8 @@ ORPHANS=0
 for f in "$RUNBOOK_DIR"/*.md; do
   b="$(basename "$f")"
   [ "$b" = "README.md" ] && continue
+  # 中文版是英文版的翻譯，不是獨立的 runbook；alert 只指向英文檔名。
+  case "$b" in *.zh-TW.md) continue ;; esac
   if [ -z "${REFERENCED[$b]:-}" ]; then
     echo "  ⚠ 孤兒 runbook（無告警引用）：$b"
     ORPHANS=$((ORPHANS+1))

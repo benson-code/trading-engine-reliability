@@ -105,7 +105,7 @@ groups:
       labels: { severity: critical, category: saturation, service: trading-engine }
       annotations:
         summary: "Full GC 佔用 {{ $value | humanizePercentage }} 的行程存活時間"
-        description: "事故基準值：491,218s STW / 698,732s uptime = 70%。超過 10% 即應介入。"
+        description: "事故基準值：491,218s STW / 1,120,514s uptime = 43.8%（另以 /proc CPU 統計交叉驗算得 43.4%）。超過 10% 即應介入。"
         runbook_url: "https://github.com/benson-code/trading-engine-reliability/blob/main/docs/runbooks/gc-death-spiral.md"
 
     - alert: JvmFullGcRateHigh

@@ -1,39 +1,42 @@
-# Runbook — MySQL 飽和
+# Runbook — MySQL saturation
 
-> **對應告警**：`MysqlConnectionsHigh` (>80% max_connections, 5m) · `MysqlSlowQueriesRising` (>0.1/s, 10m)
+**English** | [繁體中文](mysql-saturation.zh-TW.md)
 
-## 基準值
-`max_connections = 151`（預設值）。正常運行時 `threads_connected` 約 1–5。
+> **Alerts**: `MysqlConnectionsHigh` (>80% of max_connections, 5m) · `MysqlSlowQueriesRising` (>0.1/s, 10m)
 
-## 立即確認
+## Baseline
+`max_connections = 151` (the default). In normal operation `threads_connected`
+sits at roughly 1–5.
+
+## First three minutes
 ```bash
 mysql -u binance_user -p -e "SHOW GLOBAL STATUS LIKE 'Threads_connected'"
 mysql -u binance_user -p -e "SHOW FULL PROCESSLIST" | head -30
 mysql -u binance_user -p -e "SHOW GLOBAL STATUS LIKE 'Slow_queries'"
 
-# 哪些查詢在跑久
+# Which queries are running long
 mysql -u binance_user -p -e "
   SELECT id, user, time, state, LEFT(info,80) AS query
   FROM information_schema.processlist
   WHERE command != 'Sleep' AND time > 5 ORDER BY time DESC;"
 ```
 
-## 常見來源（本專案）
-| 來源 | 說明 |
+## Common sources in this project
+| Source | Explanation |
 |---|---|
-| 完整性檢查全表掃描 | `tools/check-db-integrity.sh` 設 `WINDOW=0` 會掃 3,700 萬筆 |
-| 連線未釋放 | 應用連線池洩漏，`Sleep` 狀態連線持續累積 |
-| 訂單寫入 + 讀取競爭 | 產生器持續以約 20 筆/秒寫入 |
+| Integrity check doing a full scan | `tools/check-db-integrity.sh` with `WINDOW=0` scans the whole table (59,557,108 rows as of 2026-09-06) |
+| Connections never released | Application connection-pool leak; `Sleep` connections accumulate |
+| Write/read contention on orders | The generator writes continuously at roughly 20 rows/sec |
 
-## 止血
+## Stop the bleeding
 ```bash
-# 找出並終止長時間執行的查詢（先確認不是關鍵作業）
+# Find and kill long-running queries (confirm first that they are not critical work)
 mysql -u binance_user -p -e "KILL <id>"
 
-# 完整性檢查請改用預設抽樣窗口，不要全表掃描
+# Run the integrity check with the default sampling window, not a full scan
 WINDOW=300000 tools/check-db-integrity.sh
 ```
 
-## 事後
-- [ ] 完整性檢查排到離峰時段（`tools/check-db-integrity.sh` 的註解已載明此取捨）
-- [ ] orders 表已達 3,700 萬筆，評估索引與分區
+## Follow-up
+- [ ] Schedule the integrity check off-peak (the trade-off is documented in the script's comments)
+- [ ] The orders table holds **59,557,108 rows** (measured 2026-09-06); evaluate indexing and partitioning

@@ -1,116 +1,120 @@
-# Runbook — 服務可達但工作沒有前進
+# Runbook — Service reachable but work is not progressing
 
-> **對應告警**：`EngineNotProgressing` · `EngineWorkerStopped` · `DatabaseWriteStalled`
-> **嚴重度**：critical
-> **來源**：2026-07 事故 #2（靜默降級，六天無人察覺）
+**English** | [繁體中文](engine-not-progressing.zh-TW.md)
+
+> **Alerts**: `EngineNotProgressing` · `EngineWorkerStopped` · `DatabaseWriteStalled`
+> **Severity**: critical
+> **Origin**: incident #2, 2026-07 (silent degradation, six days unnoticed)
 
 ---
 
-## 觸發條件
+## Triggers
 
-| 告警 | 判斷式 | 持續 |
+| Alert | Expression | For |
 |---|---|---|
 | `EngineNotProgressing` | `engine_up == 1 and rate(engine_orders_generated_total[10m]) == 0` | 10m |
 | `EngineWorkerStopped` | `engine_up == 1 and engine_running == 0` | 5m |
 | `DatabaseWriteStalled` | `engine_running == 1 and rate(engine_orders_generated_total[15m]) == 0` | 15m |
 
-**閾值來源**：程式碼宣告產速約 20 筆/秒，實測 DB 每小時 71,913 筆
-（≈ 19.98 筆/秒）。任何連續 10 分鐘的零成長都不可能是正常波動。
+**Where the threshold comes from**: the code declares a generation rate of about
+20 orders/sec, and the database measured 71,913 rows/hour (≈19.98/sec). Ten
+consecutive minutes of zero growth cannot be normal variation.
 
 ---
 
-## 影響
+## Impact
 
-**這是本系統最危險的一類故障，因為所有傳統健康檢查都會通過：**
+**This is the most dangerous failure class in this system, because every
+conventional health check passes:**
 
-| 檢查方式 | 事故期間的結果 |
+| Check | Result during the incident |
 |---|---|
 | `systemctl status` | `active (running)` ✅ |
-| TCP port 探測 | 已 bind ✅ |
+| TCP port probe | bound ✅ |
 | `GET /api/v1/status` | `200 OK` ✅ |
-| K8s liveness probe | 會通過 ✅ |
-| K8s readiness probe | 會通過 ✅ |
-| **實際業務產出** | **零，持續六天** ❌ |
+| K8s liveness probe | would pass ✅ |
+| K8s readiness probe | would pass ✅ |
+| **Actual business output** | **zero, for six days** ❌ |
 
-基礎設施執行緒（REST、WebSocket、scheduler）都回來了，
-只有業務執行緒沒有。
+The infrastructure threads (REST, WebSocket, scheduler) all came back. Only the
+business threads did not.
 
 ---
 
-## 立即確認（前 3 分鐘）
+## First three minutes
 
 ```bash
-# 1. 服務自報怎麼說
+# 1. What the service says about itself
 curl -s http://localhost:8092/api/v1/status | jq .
 
-# 2. 計數器有沒有在動 —— 這是唯一可信的訊號
+# 2. Is the counter moving — this is the only trustworthy signal
 for i in 1 2 3; do
   curl -s http://localhost:8092/api/v1/status | jq -r '.ordersGenerated'
   sleep 10
 done
-# 三次數字相同 = 確認停滯
+# Same number three times = stall confirmed
 
-# 3. 從 DB 側獨立驗證（不相信服務自報）
-mysql -u binance_user -p binance_test_db -e "
+# 3. Verify independently from the database (do not trust self-reporting)
+mysql --defaults-extra-file=<cred> binance_test_db -e "
   SELECT DATE_FORMAT(created_at,'%Y-%m-%d %H:00') AS hr, COUNT(*) AS rows_written
   FROM orders WHERE created_at > NOW() - INTERVAL 8 HOUR
   GROUP BY hr ORDER BY hr;"
-# 正常應為每小時約 71,900 筆；塌到 0 即確認
+# Normal is roughly 71,900 rows/hour; a collapse to 0 confirms it
 
-# 4. 進程是否被重啟過（找觸發點）
+# 4. Was the process restarted? (find the trigger)
 systemctl show binance-trading-engine -p ExecMainStartTimestamp
 journalctl -u binance-trading-engine --since "24 hours ago" | grep -iE "signal|SIGTERM|143|Stopped|Started"
 
-# 5. 是不是自動更新造成的
+# 5. Was it caused by automatic updates
 journalctl -u unattended-upgrades --since "24 hours ago" | tail -30
 ```
 
 ---
 
-## 止血
+## Stop the bleeding
 
 ```bash
-# 透過 API 重新啟動產生器（不重啟進程，保留現場）
+# Restart the generator through the API (leaves the process running, preserves the scene)
 curl -s -X POST http://localhost:8092/api/v1/control/start
 
-# 確認恢復
+# Confirm recovery
 sleep 30 && curl -s http://localhost:8092/api/v1/status | jq '.ordersGenerated'
 ```
 
-**如果 API 無效才重啟服務** —— 但重啟前務必先保留現場：
+**Only restart the service if the API does not work** — and preserve the scene first:
 
 ```bash
-tools/preserve-scene.sh   # 或參照 PRESERVE_SCENE.md 手動採集
+tools/preserve-scene.sh   # or collect manually per PRESERVE_SCENE.md
 sudo systemctl restart binance-trading-engine
 ```
 
 ---
 
-## 根因調查
+## Root-cause investigation
 
-已知根因（2026-07 事故 #2）：
+Known root cause (incident #2, July 2026):
 
-1. `unattended-upgrades` 重啟了 MySQL
-2. 連帶對應用程式送出 `SIGTERM`（journal 顯示 `exit code 143` = 128+15）
-3. systemd `Restart=on-failure` **成功重啟了進程**
-4. 但產生器的啟停由一個 **in-memory `AtomicBoolean`** 控制，
-   重啟後預設回到 `false`
-5. → 進程活著、port 開著、API 回 200，業務執行緒卻沒有啟動
+1. `unattended-upgrades` restarted MySQL
+2. That propagated `SIGTERM` to the application (the journal shows `exit code 143` = 128+15)
+3. systemd's `Restart=on-failure` **restarted the process successfully**
+4. But the generator's on/off state is held in an **in-memory `AtomicBoolean`**, which resets to `false` on boot
+5. → process alive, port open, API returning 200 — and the business threads never started
 
-**要確認是否為同一根因**，檢查：
-- journal 裡有沒有 `exit code 143`
-- 重啟時間點是否對齊 `unattended-upgrades` 的執行時間
-- 產生器旗標在重啟後是否為 `false`
+**To confirm it is the same root cause**, check:
+- whether the journal contains `exit code 143`
+- whether the restart time lines up with the `unattended-upgrades` run
+- whether the generator flag was `false` after the restart
 
 ---
 
-## 事後
+## Follow-up
 
-- [ ] 已修：狀態改為開機時自動恢復（不再依賴 in-memory 旗標）
-- [ ] 已補：本告警（把可靠度訊號從「進程存活」改為「工作進度」）
-- [ ] 待辦：在 systemd unit 加上 `ExecStartPost` 驗證業務執行緒已啟動
-- [ ] 待辦：`unattended-upgrades` 排除 MySQL，或設定維護窗口
+- [ ] Fixed: state now recovers automatically at boot instead of depending on an in-memory flag
+- [ ] Added: this alert group — the reliability signal moved from "process alive" to "work progressing"
+- [ ] Todo: add `ExecStartPost` to the systemd unit to verify the business threads actually started
+- [ ] Todo: exclude MySQL from `unattended-upgrades`, or define a maintenance window
 
-**這次事故的核心教訓**：
-> 自動修復（systemd restart）與可觀測性是會互相打架的。
-> 自動修復讓故障「看起來」被解決了，反而延後了發現時間。
+**The core lesson:**
+> Automatic recovery (systemd restart) and observability work against each other.
+> Auto-recovery made the failure *look* resolved, and by doing so delayed its
+> discovery.

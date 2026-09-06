@@ -20,10 +20,32 @@
 - **不搞 WireMock 那套假把戲** —— 每一個 API 跟整合測試都是透過內嵌 HTTP server 去打**真正的** `PaymentService`，而不是 mock 出來的替身，所以測試全綠就代表服務本身真的跑得動（[commit `668bfc4`](https://github.com/benson-code/trading-engine-reliability/commit/668bfc4) 就是從 mock 遷移到真實服務的過程）。
 - **支付等級的輸入跟權限把關** —— 幣別一定要跟帳戶一致（`422`）；金額精度卡在 `DECIMAL(18,8)`（`400 INVALID_PRECISION`，不會偷偷截斷）；支付端點只要有設定，就一定要帶 `X-API-Key`（用常數時間比較，constant-time）（[`PaymentAuthTest`](payment-api/src/test/java/com/binance/payment/api/PaymentAuthTest.java)）。
 - **把弄垮後端的那類缺陷，也拿去測前端** —— `useTradingEngine` 有兩個只進不出的集合，其中一個每收到一則訊息就把自己整份複製一次。Pixel 7 的耐久測試灌 4 萬筆訂單（大約 33 分鐘的 session），然後驗證 retained heap 沒有跟著長大：**約 2,070 KB → 401 KB**，每批耗時的首末比也從 2.27x 拉平到 0.98x（[`session-retention.spec.ts`](trading-engine-ui/tests/endurance/session-retention.spec.ts)）。
-- **SLO 與錯誤預算,而且其中一個已經超支** —— 三個 SLI,每一個都對應這台機器上真的發生過的失效模式:可用性、延遲(250ms)、以及**工作進度**。3 天實測:可用性 **100.0000%**、延遲 **100.0000%**、工作進度 **97.3611%**(目標 99%)—— **超支 163.9%**。2026-09-03 引擎有 115 分鐘完全沒有產出,而同期間 `probe_success` 全程為 1、延遲維持約 1ms、行程從未重啟:**前兩個 SLI 全程回報一個完美的服務**。上面架了 6 條多視窗多燒錄率告警(14.4x 立刻叫人、6x 開單)([`docs/slo.md`](docs/slo.md))。
+- **SLO 與錯誤預算,而且其中一個已經超支** —— 三個 SLI,每一個都對應這台機器上真的發生過的失效模式:可用性、延遲(250ms)、以及**工作進度**。3 天實測:可用性 **100.0000%**、延遲 **100.0000%**、工作進度 **97.3611%**(目標 99%)—— **超支 163.9%**。2026-09-03 引擎有 115 分鐘完全沒有產出,而同期間 `probe_success` 全程為 1、延遲維持約 1ms、行程從未重啟:**前兩個 SLI 全程回報一個完美的服務**。上面架了 6 條多視窗多燒錄率告警(14.4x 立刻叫人、6x 開單)([`docs/slo.md`](docs/slo.zh-TW.md))。
 - **可觀測性長在真實事故上** —— 30 條 Prometheus 告警規則，閾值全部由兩次實測事故反推 · 13 份 runbook，覆蓋率由 CI 強制 · Alertmanager 分級路由加 4 條抑制規則 · 一個指令完成事故現場保全。
 - **兩層互相獨立的測試打在真的跑起來的服務上** —— 除了 CI 裡的 Java 測試，還有一套 Python（`pytest`）的 contract / 驗證 / idempotency / 併發測試，以及 `k6` 壓測腳本。兩者都會自己起一個用完即丟的實例、綁 OS 指派的埠號，並以 `nice -n 15` 執行，所以一次執行絕不會撞到、也絕不會寫進這台機器上長期運行的服務（[`python-qa/`](python-qa/README.md)）。
 - **品質靠 CI 強制把關** —— CI 一次跑 104 個 Java 測試，外加一套 mobile-web 耐久測試 · 一道宣告式的 `BOUNDED-BY` 閘，任何長生命週期集合只要沒有淘汰機制、又沒寫明為什麼不會無限成長，就直接擋下來 · `main` 上了連 admin 都擋不掉的分支保護 · 只能走 PR · 五個必過的檢查一定要全綠（機密掃描排第一）· 用 rebase-merge 保留 P1/P2/P3 的 commit 故事線。
+
+---
+
+## 文件導覽
+
+所有文件都有英文與繁體中文兩個版本。**英文使用預設檔名，中文加上 `.zh-TW` 後綴**，
+每一頁的最上方都有切換連結。
+
+| 文件 | English | 繁體中文 |
+|---|---|---|
+| 專案總覽 | [`README.md`](README.md) | [`README.zh-TW.md`](README.zh-TW.md) |
+| SLO 與錯誤預算 | [`docs/slo.md`](docs/slo.md) | [`docs/slo.zh-TW.md`](docs/slo.zh-TW.md) |
+| Runbook 索引 | [`docs/runbooks/README.md`](docs/runbooks/README.md) | [`docs/runbooks/README.zh-TW.md`](docs/runbooks/README.zh-TW.md) |
+| 13 份告警 runbook | `docs/runbooks/*.md` | `docs/runbooks/*.zh-TW.md` |
+
+**尚未翻譯的部分，這裡誠實標示**：完整事故 RCA
+（[`RCA-zh-TW.md`](docs/incident-2026-07-14-gc-death-spiral/RCA-zh-TW.md)，約 1,000 行）
+與資源安全檢查表目前只有中文版。但英文讀者不會卡住 ——
+事故當下寫的鑑識報告本來就是英文：
+[`RCA_REPORT.md`](docs/incident-2026-07-14-gc-death-spiral/evidence/RCA_REPORT.md)、
+[`INCIDENT_REPORT.md`](docs/incident-2026-07-14-gc-death-spiral/evidence/INCIDENT_REPORT.md)、
+[`LOG_EVENT_ANALYSIS.md`](docs/incident-2026-07-14-gc-death-spiral/evidence/LOG_EVENT_ANALYSIS.md)。
 
 ---
 
@@ -496,7 +518,7 @@ JVM 指標由 [`jstat-exporter.sh`](deploy/observability/jstat-exporter.sh)
 
 | 訊號 | 閾值 | 事故當時的實測值 |
 |---|---|---|
-| Full GC 佔行程存活時間比 | > 10% | **70%**（491,218s STW / 698,732s uptime）|
+| Full GC 佔行程存活時間比 | > 10% | **43.8%**（491,218s STW / 1,120,514s uptime）|
 | 老年代使用率 | > 85% | **99.99%** |
 | Full GC 累計次數 | 速率 > 0.1/s | **114,879 次** |
 | 訂單產生速率 | 連續 10 分鐘為 0 | 正常為 **1,198 筆/分**（≈20/秒）|
@@ -525,7 +547,7 @@ JVM 指標由 [`jstat-exporter.sh`](deploy/observability/jstat-exporter.sh)
 
 13 份 runbook 覆蓋全部 30 條告警，每份都是同樣六段：
 觸發條件 · 影響 · 立即確認（前三分鐘）· 止血 · 根因調查 · 事後。
-見 [`docs/runbooks/`](docs/runbooks/README.md)。
+見 [`docs/runbooks/`](docs/runbooks/README.zh-TW.md)。
 
 > 沒有處理 SOP 的告警，等於把問題丟給半夜三點被叫起來的人自己想。
 > 那是告警設計的失職，不是值班的問題。
