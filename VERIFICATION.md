@@ -3,7 +3,7 @@
 This document maps every claim in [`README.md`](README.md) to concrete, reproducible evidence — automated tests and live HTTP runs. It is a point-in-time verification record.
 
 > **⚠️ Test counts in this record are superseded.** §1 and §5 below reflect the suite as it stood at
-> `67afe59`. Six tests have been added since — `OrderBookRetentionTest` (3), `PaymentRetentionTest`
+> `45af724`. Six tests have been added since — `OrderBookRetentionTest` (3), `PaymentRetentionTest`
 > (2) and `JobRetentionEnduranceTest` (1) — so the current totals are **payment-api 46 ·
 > trading-engine 58 CI / 66 local = 104 CI / 112 local**. The numbers below are left unedited on
 > purpose: this is a record of what was verified on 2026-05-21, not a live dashboard. Everything
@@ -11,7 +11,7 @@ This document maps every claim in [`README.md`](README.md) to concrete, reproduc
 
 | | |
 |---|---|
-| **Verified against** | `main` @ `67afe59` |
+| **Verified against** | `main` @ `45af724` |
 | **Date** | 2026-05-21 |
 | **Build** | `mvn clean test` → **BUILD SUCCESS**, 0 failures / 0 errors |
 | **Test totals** | payment-api **43** · trading-engine **63** = **106 local / 98 CI** |
@@ -139,7 +139,7 @@ Same as the CI `UI Build Check (Next.js 15)` job:
 | `main` PR-only, admin-enforced | `enforce_admins: true`, PR required | ✅ |
 | 2 required CI checks | `Java Tests` · `UI Build Check (Next.js 15)` | ✅ |
 | force-push & deletion disabled | both disabled | ✅ |
-| local / origin / GitHub aligned | all `67afe59` (0 / 0 divergence) | ✅ |
+| local / origin / GitHub aligned | all `45af724` (0 / 0 divergence) | ✅ |
 | latest `main` CI | green | ✅ |
 
 ---
